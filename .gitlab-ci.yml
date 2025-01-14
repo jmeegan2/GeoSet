@@ -1,0 +1,128 @@
+variables:
+   # update the sprint number at the start of each sprint
+  SPRINT_NUMBER: "29"
+  # increment with each merge to main and reset to 0 at the start of each sprint
+  VALUE_INCREMENT: "1"
+
+  CODE_DIRECTORY: ./
+  DOCKER_FILE: Dockerfile
+
+default:
+  tags:
+    - live-dart-development
+
+include:
+  - scan.yml
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH == "main"
+
+stages:
+  - build
+  - linting
+  - security-test
+  - security-scan
+  - testing-jobs
+  # - automated-testing
+
+Build Dev Image and Push to Registry:
+  image:
+    name: quay.io/buildah/stable:v1.35.3
+  stage: build
+  needs: []
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - export STORAGE_DRIVER=vfs
+    - buildah build -t $FULL_IMAGE_NAME --platform linux/amd64 --target dev .
+    - buildah push $FULL_IMAGE_NAME
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+
+Build Release Image and Push to Registry:
+  image:
+    name: quay.io/buildah/stable:v1.35.3
+  stage: build
+  needs: []
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - export STORAGE_DRIVER=vfs
+    - buildah build -t $FULL_IMAGE_NAME --platform linux/amd64 --target dev .
+    - buildah push $FULL_IMAGE_NAME
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      variables:
+        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT
+
+iSort Python Imports:
+  stage: linting
+  image: $FULL_IMAGE_NAME
+  script:
+    - isort --check --profile black .
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+
+Black Formatting:
+  stage: linting
+  image: registry.gitlab.com/pipeline-components/black:latest
+  script:
+    - black --check --diff .
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+
+Ruff:
+  stage: linting
+  image: registry.gitlab.com/pipeline-components/ruff:latest
+  script:
+    - ruff check .
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+
+container_scanning:
+  stage: security-scan
+  image:
+    name: docker.io/aquasec/trivy:0.50.1
+    entrypoint: [""]
+  variables:
+    FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$TAG
+    TRIVY_USERNAME: "$CI_REGISTRY_USER"
+    TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+    TRIVY_AUTH_URL: "$CI_REGISTRY"
+    TRIVY_CACHE_DIR: ".trivycache/"
+  script:
+    - trivy image --download-db-only
+    - trivy image --scanners vuln --vuln-type os --ignore-status affected,will_not_fix,under_investigation --format template --template "@/contrib/gitlab.tpl" -o gl-container-scanning-report.json $FULL_IMAGE_NAME
+  cache:
+    paths:
+      - .trivycache/
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+  artifacts:
+    when: always
+    reports:
+      container_scanning: gl-container-scanning-report.json
+
+
+# multi project pipeline downstream jobs for connecting to test repo and running that pipeline
+Dast Scan:
+  variables:
+    SYSTEM_NAME: dart
+  stage: testing-jobs
+  trigger:
+    project: systems/dart/testing
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"

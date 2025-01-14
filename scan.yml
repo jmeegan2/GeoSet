@@ -1,0 +1,255 @@
+
+variables:
+  FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+  SECURE_ANALYZERS_PREFIX: "$CI_TEMPLATE_REGISTRY_HOST/security-products"
+  DS_EXCLUDED_ANALYZERS: ""
+  DS_EXCLUDED_PATHS: "spec, test, tests, tmp"
+  DS_MAJOR_VERSION: 4
+  DS_SCHEMA_MODEL: 15
+
+stages:
+  - security-test
+
+Secrets Detector:
+  stage: security-test
+  image:
+    name: registry.gitlab.com/gitlab-org/security-products/analyzers/secrets:6
+  needs: []
+  variables:
+    GIT_DEPTH: "50"
+  script:
+    - /analyzer run
+    # - if [[ $(cat gl-secret-detection-report.json | jq '.vulnerabilities | length > 0') ]]; then echo "secrets found" && exit 1; fi
+  allow_failure: true
+  only:
+    - merge_requests
+    - main  
+  artifacts:
+    when: always
+    reports:
+      secret_detection: gl-secret-detection-report.json
+
+Checkmarx Dockerfile:
+  stage: security-test
+  image: 
+    name: checkmarx/kics:latest
+    entrypoint: [""]
+  needs: []  
+  variables:
+    DEPLOYMENT_PATH: Dockerfile
+  script:
+    - kics scan -p $DEPLOYMENT_PATH -o ${PWD} -t Dockerfile --ignore-on-exit all --report-formats glsast --output-name docker_file --ci
+  only:
+    - merge_requests
+    - main
+  allow_failure: true
+  artifacts:
+    reports:
+      sast: gl-sast-docker_file.json
+    when: always  
+
+
+# Build image and push to registry:
+#   stage: build-image
+#   image: 
+#     name: quay.io/buildah/stable:v1.35.3
+#   script:
+#     - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+#     - export STORAGE_DRIVER=vfs
+#     - buildah build -t $FULL_IMAGE_NAME .
+#     - buildah push $FULL_IMAGE_NAME
+#   only: 
+#     - main 
+#     - merge_requests
+  
+# container_scanning:
+#   stage: security-scan
+#   image:
+#     name: docker.io/aquasec/trivy:0.52.0
+#     entrypoint: [""]
+#   variables:
+#     TRIVY_USERNAME: "$CI_REGISTRY_USER"
+#     TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+#     TRIVY_AUTH_URL: "$CI_REGISTRY"
+#     TRIVY_CACHE_DIR: ".trivycache/"
+#     #TRIVY_IGNOREFILE: "./.trivyignore.yaml"
+#   script:
+#     - trivy image --download-db-only
+#     - trivy image --scanners vuln --ignore-status affected,will_not_fix --format template --template "@/contrib/gitlab.tpl" -o gl-container-scanning-report.json $FULL_IMAGE_NAME
+#   cache:
+#     paths:
+#       - .trivycache/
+#   allow_failure: false
+
+
+#   only: 
+#     - main 
+#     - merge_requests   
+
+#   artifacts:
+#     when: always
+#     reports:
+#       container_scanning: gl-container-scanning-report.json
+
+Sonarqube-SAST:
+  stage: security-test
+  image: 
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  needs: []
+  variables:
+    SONAR_HOST_URL: https://sonarqube.management.acf.gov
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+
+  script: 
+    - |- 
+      if [[ $JAVA_CLASS_DIR != "" ]] ; then
+        export JAVA_BINARY_DIR="$CODE_DIRECTORY/$JAVA_BINARY_DIR"
+      fi
+    - sonar-scanner -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.python.coverage.reportPaths=python/coverage.xml -Dsonar.projectKey=$SONAR_PROJECT_NAME -Dsonar.qualitygate.wait=true -Dsonar.sources=".$CODE_DIRECTORY" -Dsonar.java.binaries=$JAVA_BINARY_DIR -Dsonar.exclusions="Dockerfile"
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main' || $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+Vulnerability-Report:
+  stage: security-test
+  image: curlimages/curl:latest
+  script:
+    - 'curl -u "${SONAR_TOKEN}:" "https://sonarqube.management.acf.gov/api/issues/gitlab_sast_export?projectKey=$SONAR_PROJECT_NAME&branch=${CI_COMMIT_BRANCH}&pullRequest=${CI_MERGE_REQUEST_IID}" -o gl-sast-sonar-report.json'  # Replace <projectKey> with your project key
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main' || $CI_PIPELINE_SOURCE == 'merge_request_event'
+  artifacts:
+    expire_in: 3 day
+    reports:
+      sast: gl-sast-sonar-report.json
+  needs:
+    - Sonarqube-SAST
+
+
+dependency_scanning:
+  stage: security-test
+  script:
+    - echo "$CI_JOB_NAME is used for configuration only, and its script should not be executed"
+    - exit 1
+  artifacts:
+    reports:
+      dependency_scanning: gl-dependency-scanning-report.json
+  dependencies: []
+  rules:
+    - when: never
+
+.ds-analyzer:
+  extends: dependency_scanning
+  allow_failure: true
+  variables:
+    # DS_ANALYZER_IMAGE is an undocumented variable used internally to allow QA to
+    # override the analyzer image with a custom value. This may be subject to change or
+    # breakage across GitLab releases.
+    DS_ANALYZER_IMAGE: "$SECURE_ANALYZERS_PREFIX/$DS_ANALYZER_NAME:$DS_MAJOR_VERSION"
+    # DS_ANALYZER_NAME is an undocumented variable used in job definitions
+    # to inject the analyzer name in the image name.
+    DS_ANALYZER_NAME: ""
+  image:
+    name: "$DS_ANALYZER_IMAGE$DS_IMAGE_SUFFIX"
+  # `rules` must be overridden explicitly by each child job
+  # see https://gitlab.com/gitlab-org/gitlab/-/issues/218444
+  script:
+    - /analyzer run
+
+.cyclonedx-reports:
+  artifacts:
+    paths:
+      - "**/gl-sbom-*.cdx.json"
+    reports:
+      cyclonedx: "**/gl-sbom-*.cdx.json"
+
+.gemnasium-shared-rule:
+  exists:
+    - '**/{Gemfile.lock,composer.lock,gems.locked,go.sum,npm-shrinkwrap.json,package-lock.json,yarn.lock,pnpm-lock.yaml,packages.lock.json,conan.lock}'
+
+gemnasium-dependency_scanning:
+  extends:
+    - .ds-analyzer
+    - .cyclonedx-reports
+  needs: []  
+  variables:
+    DS_ANALYZER_NAME: "gemnasium"
+    GEMNASIUM_LIBRARY_SCAN_ENABLED: "true"
+    DS_MAX_DEPTH: 0 # NO LIMIT.  Some projects have a deep directory structure.
+  rules:
+    - if: $DEPENDENCY_SCANNING_DISABLED == 'true' || $DEPENDENCY_SCANNING_DISABLED == '1'
+      when: never
+    - if: $DS_EXCLUDED_ANALYZERS =~ /gemnasium([^-]|$)/
+      when: never 
+    - if: $CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"   
+      exists: !reference [.gemnasium-shared-rule, exists]
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+        DS_REMEDIATE: "false"
+    - if: $CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"   
+      exists: !reference [.gemnasium-shared-rule, exists]
+
+.gemnasium-maven-shared-rule:
+  exists:
+    - '**/{build.gradle,build.gradle.kts,build.sbt,pom.xml}'
+
+gemnasium-maven-dependency_scanning:
+  extends:
+    - .ds-analyzer
+    - .cyclonedx-reports
+  needs: []  
+  variables:
+    DS_ANALYZER_NAME: "gemnasium-maven"
+  rules:
+    - if: $DEPENDENCY_SCANNING_DISABLED == 'true' || $DEPENDENCY_SCANNING_DISABLED == '1'
+      when: never
+    - if: $DS_EXCLUDED_ANALYZERS =~ /gemnasium-maven/
+      when: never
+    - if: $CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"   
+      exists: !reference [.gemnasium-maven-shared-rule, exists]
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+    - if: $CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"   
+      exists: !reference [.gemnasium-maven-shared-rule, exists]
+
+.gemnasium-python-shared-rule:
+  exists:
+    - '**/{requirements.txt,requirements.pip,Pipfile,Pipfile.lock,requires.txt,setup.py,poetry.lock}'
+
+gemnasium-python-dependency_scanning:
+  extends:
+    - .ds-analyzer
+    - .cyclonedx-reports
+  needs: []  
+  variables:
+    DS_ANALYZER_NAME: "gemnasium-python"
+  rules:
+    - if: $DEPENDENCY_SCANNING_DISABLED == 'true' || $DEPENDENCY_SCANNING_DISABLED == '1'
+      when: never
+    - if: $DS_EXCLUDED_ANALYZERS =~ /gemnasium-python/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" 
+    - if: $CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"   
+      exists: !reference [.gemnasium-python-shared-rule, exists]
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+    - if: $CI_COMMIT_BRANCH || $CI_PIPELINE_SOURCE == "merge_request_event"   
+      exists: !reference [.gemnasium-python-shared-rule, exists]
+    # Support passing of $PIP_REQUIREMENTS_FILE
+    # See https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#configuring-specific-analyzers-used-by-dependency-scanning
+    - if: $CI_COMMIT_BRANCH &&
+          $GITLAB_FEATURES =~ /\bdependency_scanning\b/ &&
+          $PIP_REQUIREMENTS_FILE &&
+          $CI_GITLAB_FIPS_MODE == "true"
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+    - if: $CI_COMMIT_BRANCH &&
+          $GITLAB_FEATURES =~ /\bdependency_scanning\b/ &&
+          $PIP_REQUIREMENTS_FILE
