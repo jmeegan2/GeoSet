@@ -16,16 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { MouseEvent } from 'react';
 import { Tag as AntdTag } from 'antd';
 import { styled, useCSSTextTruncation } from '@superset-ui/core';
+import { MouseEvent } from 'react';
 import { Tooltip } from '../Tooltip';
 import { CustomCloseIcon } from '../Tags/Tag';
 import { CustomTagProps } from './types';
 import { SELECT_ALL_VALUE } from './utils';
 import { NoElement } from './styles';
 
-const StyledTag = styled(AntdTag)`
+export const StyledTag = styled(AntdTag)`
   & .ant-tag-close-icon {
     display: inline-flex;
     align-items: center;

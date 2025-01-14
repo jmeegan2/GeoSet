@@ -25,6 +25,7 @@
 export { default as Select } from './Select/Select';
 export { default as AsyncSelect } from './Select/AsyncSelect';
 export { default as Button } from './Button';
+export { DraggableSelect } from './Select/DraggableSelect';
 
 /*
  * Components that don't conflict with the ones in src/components.

@@ -48,6 +48,7 @@ export type TableColumnConfig = {
   alignPositiveNegative?: boolean;
   colorPositiveNegative?: boolean;
   truncateLongCells?: boolean;
+  hideColumn?: boolean;
   currencyFormat?: Currency;
 };
 

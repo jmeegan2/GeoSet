@@ -117,6 +117,7 @@ const Select = forwardRef(
       sortComparator = DEFAULT_SORT_COMPARATOR,
       tokenSeparators = TOKEN_SEPARATORS,
       value,
+      tagRender,
       getPopupContainer,
       oneLine,
       maxTagCount: propsMaxTagCount,
@@ -651,7 +652,7 @@ const Select = forwardRef(
           }
           options={shouldRenderChildrenOptions ? undefined : fullSelectOptions}
           oneLine={oneLine}
-          tagRender={customTagRender}
+          tagRender={tagRender || customTagRender}
           {...props}
           ref={ref}
         >

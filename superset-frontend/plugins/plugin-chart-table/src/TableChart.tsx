@@ -407,21 +407,26 @@ export default function TableChart<D extends DataRecord = DataRecord>(
   const comparisonLabels = [t('Main'), '#', '△', '%'];
   const filteredColumnsMeta = useMemo(() => {
     if (!isUsingTimeComparison) {
-      return columnsMeta;
+      return columnsMeta.filter(({ config }) => {
+        const isHiddenByConfig = config?.hideColumn ?? false;
+        return !isHiddenByConfig;
+      });
     }
     const allColumns = comparisonColumns[0].key;
     const main = comparisonLabels[0];
     const showAllColumns = selectedComparisonColumns.includes(allColumns);
 
-    return columnsMeta.filter(({ label, key }) => {
+    return columnsMeta.filter(({ label, key, config }) => {
       // Extract the key portion after the space, assuming the format is always "label key"
       const keyPortion = key.substring(label.length);
-      const isKeyHidded = hideComparisonKeys.includes(keyPortion);
-      const isLableMain = label === main;
+      const isKeyHidden = hideComparisonKeys.includes(keyPortion);
+      const isLabelMain = label === main;
 
+      const isHiddenByConfig = config?.hideColumn ?? false;
       return (
-        isLableMain ||
-        (!isKeyHidded &&
+        isLabelMain ||
+        (!isKeyHidden &&
+          !isHiddenByConfig &&
           (!comparisonLabels.includes(label) ||
             showAllColumns ||
             selectedComparisonColumns.includes(label)))

@@ -166,6 +166,7 @@ export interface SelectProps extends BaseSelectProps {
    * The options can be static, an array of options.
    */
   options: SelectOptionsType;
+  tagRender?: any;
 }
 
 export type AsyncSelectRef = HTMLInputElement & { clearCache: () => void };
@@ -221,3 +222,27 @@ export type CustomTagProps = HTMLSpanElement &
     label: ReactNode;
     value: string;
   };
+
+export type DraggableSelectProps = Omit<SelectProps, 'ref'>;
+
+export interface DraggableTagProps {
+  /**
+   * The content rendered within tag.
+   */
+  label: ReactNode;
+  /**
+   * The unique ID for tag.
+   */
+  value: string;
+  /**
+   * The current position of the tag in list of selected tags.
+   */
+  index: number;
+  moveTag: (dragIndex: number, hoverIndex: number) => void;
+  onRemove: (value: string) => void;
+}
+
+export interface DraggableTagInterface {
+  type: string;
+  dragIndex: number;
+}

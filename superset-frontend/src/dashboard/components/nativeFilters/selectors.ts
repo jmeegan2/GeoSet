@@ -344,7 +344,10 @@ export const selectNativeIndicatorsForChart = (
 ): Indicator[] => {
   const appliedColumns = getAppliedColumns(chart);
   const rejectedColumns = getRejectedColumns(chart);
-
+  const extraFilters = chart.latestQueryFormData.extra_form_data?.filters || []
+  for (const extraFilter of extraFilters) {
+    appliedColumns.add(extraFilter.col)
+  }
   const cachedFilterData = cachedNativeFilterDataForChart[chartId];
   if (
     cachedNativeIndicatorsForChart[chartId] &&

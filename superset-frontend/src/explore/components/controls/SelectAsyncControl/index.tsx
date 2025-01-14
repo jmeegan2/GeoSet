@@ -19,10 +19,10 @@
 import { useEffect, useState } from 'react';
 import { t, SupersetClient, getClientErrorObject } from '@superset-ui/core';
 import ControlHeader from 'src/explore/components/ControlHeader';
-import { Select } from 'src/components';
 import { SelectOptionsType, SelectProps } from 'src/components/Select/types';
 import { SelectValue, LabeledValue } from 'antd/lib/select';
 import withToasts from 'src/components/MessageToasts/withToasts';
+import { Select, DraggableSelect } from 'src/components';
 
 type SelectAsyncProps = Omit<SelectProps, 'options' | 'ariaLabel' | 'onChange'>;
 
@@ -38,6 +38,7 @@ interface SelectAsyncControlProps extends SelectAsyncProps {
   description?: string;
   hovered?: boolean;
   label?: string;
+  isDraggable?: boolean;
 }
 
 function isLabeledValue(arg: any): arg is LabeledValue {
@@ -54,6 +55,7 @@ const SelectAsyncControl = ({
   onChange,
   placeholder,
   value,
+  isDraggable = true,
   ...props
 }: SelectAsyncControlProps) => {
   const [options, setOptions] = useState<SelectOptionsType>([]);
@@ -99,6 +101,20 @@ const SelectAsyncControl = ({
     loadOptions();
   }, [addDangerToast, dataEndpoint, mutator]);
 
+  if (isDraggable) {
+    return (
+      <DraggableSelect
+        allowClear={allowClear}
+        ariaLabel={ariaLabel || t('Select ...')}
+        value={getValue()}
+        header={<ControlHeader {...props} />}
+        mode={multi ? 'multiple' : 'single'}
+        onChange={handleOnChange}
+        options={options}
+        placeholder={placeholder}
+      />
+    );
+  }
   return (
     <Select
       allowClear={allowClear}

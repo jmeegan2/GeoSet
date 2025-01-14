@@ -37,6 +37,7 @@ export type SharedColumnConfigProp =
   | 'd3TimeFormat'
   | 'horizontalAlign'
   | 'truncateLongCells'
+  | 'hideColumn'
   | 'showCellBars'
   | 'currencyFormat';
 
@@ -144,6 +145,16 @@ const truncateLongCells: ControlFormItemSpec<'Checkbox'> = {
   debounceDelay: 400,
 };
 
+const hideColumn: ControlFormItemSpec<'Checkbox'> = {
+  controlType: 'Checkbox',
+  label: t('Hide Column'),
+  description: t(
+    'Ability to not render columns, useful if you just want the attribute for metadata.'
+  ),
+  defaultValue: false,
+  debounceDelay: 400,
+};
+
 const currencyFormat: ControlFormItemSpec<'CurrencyControl'> = {
   controlType: 'CurrencyControl',
   label: t('Currency format'),
@@ -169,6 +180,7 @@ export const SHARED_COLUMN_CONFIG_PROPS = {
   fractionDigits,
   columnWidth,
   truncateLongCells,
+  hideColumn,
   horizontalAlign,
   showCellBars,
   alignPositiveNegative,
@@ -183,6 +195,7 @@ export const DEFAULT_CONFIG_FORM_LAYOUT: ColumnConfigFormLayout = {
       { name: 'horizontalAlign', override: { defaultValue: 'left' } },
     ],
     ['truncateLongCells'],
+    ['hideColumn'],
   ],
   [GenericDataType.Numeric]: [
     {
@@ -195,6 +208,7 @@ export const DEFAULT_CONFIG_FORM_LAYOUT: ColumnConfigFormLayout = {
         ['showCellBars'],
         ['alignPositiveNegative'],
         ['colorPositiveNegative'],
+        ['hideColumn'],
       ],
     },
     {
@@ -212,11 +226,13 @@ export const DEFAULT_CONFIG_FORM_LAYOUT: ColumnConfigFormLayout = {
       { name: 'horizontalAlign', override: { defaultValue: 'left' } },
     ],
     ['d3TimeFormat'],
+    ['hideColumn'],
   ],
   [GenericDataType.Boolean]: [
     [
       'columnWidth',
       { name: 'horizontalAlign', override: { defaultValue: 'left' } },
     ],
+    ['hideColumn'],
   ],
 };

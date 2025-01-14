@@ -23,6 +23,7 @@ Superset can render.
 
 from __future__ import annotations
 
+import ast
 import copy
 import dataclasses
 import logging
@@ -36,6 +37,7 @@ from typing import Any, cast, Optional, TYPE_CHECKING
 import geohash
 import numpy as np
 import pandas as pd
+import plpygis
 import polyline
 from dateutil import relativedelta as rdelta
 from deprecation import deprecated
@@ -101,6 +103,14 @@ METRIC_KEYS = [
     "y",
     "size",
 ]
+
+
+def is_dictionary_string(string):
+    try:
+        result = ast.literal_eval(string)
+        return isinstance(result, dict)
+    except (ValueError, SyntaxError):
+        return False
 
 
 class BaseViz:  # pylint: disable=too-many-public-methods
@@ -1806,6 +1816,34 @@ class MapboxViz(BaseViz):
         }
 
 
+class DartDeckGLMultiLayer(BaseViz):
+    """Pile on multiple DeckGL layers"""
+
+    viz_type = "deck_dart_multi"
+    verbose_name = _("Deck.gl - Multiple Layers")
+
+    is_timeseries = False
+    credits = '<a href="https://uber.github.io/deck.gl/">deck.gl</a>'
+
+    @deprecated(deprecated_in="3.0")
+    def query_obj(self) -> QueryObjectDict:
+        return {}
+
+    @deprecated(deprecated_in="3.0")
+    def get_data(self, df: pd.DataFrame) -> VizData:
+        # Late imports to avoid circular import issues
+        # pylint: disable=import-outside-toplevel
+        from superset import db
+        from superset.models.slice import Slice
+
+        slice_ids = self.form_data.get("deck_slices")
+        slices = db.session.query(Slice).filter(Slice.id.in_(slice_ids)).all()
+        return {
+            "mapboxApiKey": config["MAPBOX_API_KEY"],
+            "slices": [slc.data for slc in slices],
+        }
+
+
 class DeckGLMultiLayer(BaseViz):
     """Pile on multiple DeckGL layers"""
 
@@ -1943,6 +1981,24 @@ class BaseDeckGLViz(BaseViz):
             )
             self.form_data["adhoc_filters"].append(filter_)
 
+    def get_col_label(self, n):
+        if isinstance(n, dict) and "label" in n:
+            return n["label"]
+        else:
+            return n
+
+    def get_unique_cols(self, cols):
+        labels = []
+        uniqueCols = []
+        for col in cols:
+            if isinstance(col, dict) and "label" in col and col["label"] not in labels:
+                labels.append(col["label"])
+                uniqueCols.append(col)
+            elif col not in labels:
+                labels.append(col)
+                uniqueCols.append(col)
+        return uniqueCols
+
     @deprecated(deprecated_in="3.0")
     def query_obj(self) -> QueryObjectDict:
         # add NULL filters
@@ -1960,11 +2016,14 @@ class BaseDeckGLViz(BaseViz):
 
         if self.form_data.get("js_columns"):
             group_by += self.form_data.get("js_columns") or []
+
+        if self.form_data.get("flyout_columns"):
+            group_by += self.form_data.get("flyout_columns") or []
         # Ensure this value is sorted so that it does not
         # cause the cache key generation (which hashes the
         # query object) to generate different keys for values
         # that should be considered the same.
-        group_by = sorted(set(group_by))
+        group_by = sorted(self.get_unique_cols(group_by), key=self.get_col_label)
         if metrics := self.get_metrics():
             query_obj["groupby"] = group_by
             query_obj["metrics"] = metrics
@@ -1980,6 +2039,13 @@ class BaseDeckGLViz(BaseViz):
     @deprecated(deprecated_in="3.0")
     def get_js_columns(self, data: dict[str, Any]) -> dict[str, Any]:
         cols = self.form_data.get("js_columns") or []
+        cols = list(map(self.get_col_label, cols))
+        return {col: data.get(col) for col in cols}
+
+    @deprecated(deprecated_in="3.0")
+    def get_flyout_columns(self, data: dict[str, Any]) -> dict[str, Any]:
+        cols = self.form_data.get("flyout_columns") or []
+        cols = list(map(self.get_col_label, cols))
         return {col: data.get(col) for col in cols}
 
     @deprecated(deprecated_in="3.0")
@@ -1997,6 +2063,9 @@ class BaseDeckGLViz(BaseViz):
             extra_props = self.get_js_columns(data)
             if extra_props:
                 feature["extraProps"] = extra_props
+            flyout_props = self.get_flyout_columns(data)
+            if flyout_props:
+                feature["flyoutProps"] = flyout_props
             features.append(feature)
 
         return {
@@ -2272,6 +2341,35 @@ class DeckContour(BaseDeckGLViz):
             utils.get_metric_name(self.metric) if self.metric else None
         )
         return super().get_data(df)
+
+
+class DartDeckGeoJson(BaseDeckGLViz):
+    """Dart's GeoJSONLayer"""
+
+    viz_type = "deck_dart_geojson"
+    verbose_name = _("Dart - GeoJSON")
+
+    @deprecated(deprecated_in="3.0")
+    def query_obj(self) -> QueryObjectDict:
+        query_obj = super().query_obj()
+        query_obj["columns"] += [self.form_data.get("geojson")]
+        query_obj["metrics"] = []
+        query_obj["groupby"] = []
+        return query_obj
+
+    @deprecated(deprecated_in="3.0")
+    def get_properties(self, data: dict[str, Any]) -> dict[str, Any]:
+        geojson = data[get_column_name(self.form_data["geojson"])]
+        if is_dictionary_string(geojson):
+            return json.loads(geojson)
+        else:
+            geom = plpygis.Geometry(geojson)
+            new_geojson = {
+                "type": "Feature",
+                "properties": {},
+                "geometry": geom.geojson,
+            }
+            return new_geojson
 
 
 class DeckGeoJson(BaseDeckGLViz):

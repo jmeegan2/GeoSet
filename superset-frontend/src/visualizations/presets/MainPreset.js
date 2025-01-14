@@ -44,6 +44,8 @@ import {
   TimePivotChartPlugin,
 } from '@superset-ui/legacy-preset-chart-nvd3';
 import { DeckGLChartPreset } from '@superset-ui/legacy-preset-chart-deckgl';
+import { DartChartPreset } from '@superset-ui/dart-preset-chart';
+import { HelloDart } from '@superset-ui/hello-dart';
 import {
   BigNumberChartPlugin,
   BigNumberTotalChartPlugin,
@@ -97,8 +99,12 @@ export default class MainPreset extends Preset {
 
     super({
       name: 'Legacy charts',
-      presets: [new DeckGLChartPreset()],
+      presets: [
+        new DeckGLChartPreset(), 
+        new DartChartPreset()
+      ],
       plugins: [
+        new HelloDart().configure({ key: 'ext_hello_dart' }),
         new AreaChartPlugin().configure({ key: 'area' }),
         new BarChartPlugin().configure({ key: 'bar' }),
         new BigNumberChartPlugin().configure({ key: 'big_number' }),
