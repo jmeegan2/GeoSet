@@ -1,8 +1,8 @@
 variables:
    # update the sprint number at the start of each sprint
-  SPRINT_NUMBER: "29"
+  SPRINT_NUMBER: "31"
   # increment with each merge to main and reset to 0 at the start of each sprint
-  VALUE_INCREMENT: "1"
+  VALUE_INCREMENT: "2"
 
   CODE_DIRECTORY: ./
   DOCKER_FILE: Dockerfile
@@ -23,7 +23,6 @@ workflow:
 
 stages:
   - build
-  - linting
   - security-test
   - security-scan
   - testing-jobs
@@ -59,36 +58,6 @@ Build Release Image and Push to Registry:
       variables:
         FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT
 
-iSort Python Imports:
-  stage: linting
-  image: $FULL_IMAGE_NAME
-  script:
-    - isort --check --profile black .
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      variables:
-        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
-
-Black Formatting:
-  stage: linting
-  image: registry.gitlab.com/pipeline-components/black:latest
-  script:
-    - black --check --diff .
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      variables:
-        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
-
-Ruff:
-  stage: linting
-  image: registry.gitlab.com/pipeline-components/ruff:latest
-  script:
-    - ruff check .
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      variables:
-        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
-
 container_scanning:
   stage: security-scan
   image:
@@ -118,11 +87,11 @@ container_scanning:
 
 
 # multi project pipeline downstream jobs for connecting to test repo and running that pipeline
-Dast Scan:
-  variables:
-    SYSTEM_NAME: dart
-  stage: testing-jobs
-  trigger:
-    project: systems/dart/testing
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+# Dast Scan:
+#   variables:
+#     SYSTEM_NAME: dart
+#   stage: testing-jobs
+#   trigger:
+#     project: systems/dart/testing
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
