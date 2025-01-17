@@ -2,7 +2,7 @@ variables:
    # update the sprint number at the start of each sprint
   SPRINT_NUMBER: "31"
   # increment with each merge to main and reset to 0 at the start of each sprint
-  VALUE_INCREMENT: "2"
+  VALUE_INCREMENT: "3"
 
   CODE_DIRECTORY: ./
   DOCKER_FILE: Dockerfile
