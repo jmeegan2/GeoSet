@@ -34,7 +34,6 @@ import sys
 from collections import OrderedDict
 from contextlib import contextmanager
 from datetime import timedelta
-from distutils.util import strtobool
 from email.mime.multipart import MIMEMultipart
 from importlib.resources import files
 from typing import Any, Callable, Iterator, Literal, TYPE_CHECKING, TypedDict
@@ -43,7 +42,7 @@ import click
 import pkg_resources
 from celery.schedules import crontab
 from flask import Blueprint
-from flask_appbuilder.security.manager import AUTH_DB, AUTH_OAUTH
+from flask_appbuilder.security.manager import AUTH_DB
 from flask_caching.backends.base import BaseCache
 from pandas import Series
 from pandas._libs.parsers import STR_NA_VALUES
@@ -308,10 +307,10 @@ AUTH_RATE_LIMIT = "5 per second"
 # GLOBALS FOR APP Builder
 # ------------------------------
 # Uncomment to setup Your App name
-APP_NAME = "ACF Situational Awareness Tool"
+APP_NAME = "Superset"
 
 # Specify the App icon
-APP_ICON = "/static/dart/images/acf_main_logo_sm.png"
+APP_ICON = "/static/assets/images/superset-logo-horiz.png"
 
 # Specify where clicking the logo would take the user'
 # Default value of None will take you to '/superset/welcome'
@@ -337,12 +336,7 @@ FAB_API_SWAGGER_UI = True
 # AUTH_DB : Is for database (username/password)
 # AUTH_LDAP : Is for LDAP
 # AUTH_REMOTE_USER : Is for using REMOTE_USER from web server
-# AUTH_OAUTH : Is for OAUTH
 AUTH_TYPE = AUTH_DB
-USE_SSO = strtobool(os.environ.get("USE_SSO", "False"))
-if USE_SSO:
-    AUTH_TYPE = AUTH_OAUTH
-
 
 # Uncomment to setup Full admin role name
 # AUTH_ROLE_ADMIN = 'Admin'
@@ -476,7 +470,7 @@ DEFAULT_FEATURE_FLAGS: dict[str, bool] = {
     # this enables programmers to customize certain charts (like the
     # geospatial ones) by inputting javascript in controls. This exposes
     # an XSS security vulnerability
-    "ENABLE_JAVASCRIPT_CONTROLS": True,  # deprecated
+    "ENABLE_JAVASCRIPT_CONTROLS": False,  # deprecated
     "KV_STORE": False,  # deprecated
     # When this feature is enabled, nested types in Presto will be
     # expanded into extra columns and/or arrays. This is experimental,
@@ -707,8 +701,8 @@ THUMBNAIL_EXECUTE_AS = [ExecutorType.CURRENT_USER, ExecutorType.SELENIUM]
 # `THUMBNAIL_EXECUTE_AS`; the executor is only equal to the currently logged in
 # user if the executor type is equal to `ExecutorType.CURRENT_USER`)
 # and return the final digest string:
-THUMBNAIL_DASHBOARD_DIGEST_FUNC: (
-    None | (Callable[[Dashboard, ExecutorType, str], str])
+THUMBNAIL_DASHBOARD_DIGEST_FUNC: None | (
+    Callable[[Dashboard, ExecutorType, str], str]
 ) = None
 THUMBNAIL_CHART_DIGEST_FUNC: Callable[[Slice, ExecutorType, str], str] | None = None
 
@@ -1117,8 +1111,8 @@ SQLLAB_CTAS_NO_LIMIT = False
 #         else:
 #             return f'tmp_{schema}'
 # Function accepts database object, user object, schema name and sql that will be run.
-SQLLAB_CTAS_SCHEMA_NAME_FUNC: (
-    None | (Callable[[Database, models.User, str, str], str])
+SQLLAB_CTAS_SCHEMA_NAME_FUNC: None | (
+    Callable[[Database, models.User, str, str], str]
 ) = None
 
 # If enabled, it can be used to store the results of long-running queries
@@ -1588,7 +1582,6 @@ TALISMAN_CONFIG = {
         "worker-src": ["'self'", "blob:"],
         "connect-src": [
             "'self'",
-            "data:",
             "https://api.mapbox.com",
             "https://events.mapbox.com",
         ],
@@ -1619,7 +1612,6 @@ TALISMAN_DEV_CONFIG = {
         "worker-src": ["'self'", "blob:"],
         "connect-src": [
             "'self'",
-            "data:",
             "https://api.mapbox.com",
             "https://events.mapbox.com",
         ],
@@ -1885,52 +1877,6 @@ class ExtraDynamicQueryFilters(TypedDict, total=False):
 
 EXTRA_DYNAMIC_QUERY_FILTERS: ExtraDynamicQueryFilters = {}
 
-### ACF-SSO
-if AUTH_TYPE is AUTH_OAUTH:
-    client_id = os.environ["SSO_CLIENT_ID"]
-    client_secret = os.environ["SSO_CLIENT_SECRET"]
-
-    admins_tmp = os.environ.get("ADMINS") or ""
-    ADMINS = [admin.strip().lower() for admin in admins_tmp.split(",")]
-
-    AUTH_USER_REGISTRATION = True
-    AUTH_USER_REGISTRATION_ROLE = "Gamma"
-
-    from superset.custom_sso_security_manager import CustomSsoSecurityManager
-
-    CUSTOM_SECURITY_MANAGER = CustomSsoSecurityManager
-
-    ACF_USERINFO_URL = (
-        "https://sso.management.acf.gov/realms/app/protocol/openid-connect/userinfo"
-    )
-
-    OAUTH_PROVIDERS = [
-        {
-            "name": "ACF-SSO",
-            "token_key": "access_token",  # Name of the token in the response of access_token_url
-            "icon": "fa-address-card",  # Icon for the provider
-            "remote_app": {
-                "client_id": client_id,  # Client Id (Identify Superset application)
-                "client_secret": client_secret,  # Secret for this Client Id (Identify Superset application)
-                "client_kwargs": {"scope": "email profile roles"},
-                "access_token_method": "POST",  # HTTP Method to call access_token_url
-                "access_token_params": {  # Additional parameters for calls to access_token_url
-                    "client_id": client_id
-                },
-                "jwks_uri": "https://sso.management.acf.gov/realms/app/protocol/openid-connect/certs",  # may be required to generate token
-                "access_token_headers": {  # Additional headers for calls to access_token_url
-                    "Authorization": "Basic Base64EncodedClientIdAndSecret"
-                },
-                "api_base_url": "https://sso.management.acf.gov/realms/app/protocol/openid-connect/",
-                "access_token_url": "https://sso.management.acf.gov/realms/app/protocol/openid-connect/token",
-                "authorize_url": "https://sso.management.acf.gov/realms/app/protocol/openid-connect/auth",
-                "logout_url": "https://sso.management.acf.gov/realms/app/protocol/openid-connect/logout",
-            },
-        }
-    ]
-
-
-###
 
 # -------------------------------------------------------------------
 # *                WARNING:  STOP EDITING  HERE                    *
