@@ -343,7 +343,7 @@ const config: ControlPanelConfig = {
           {
             name: 'row_limit',
             override: {
-              default: 1000,
+              default: 5000,
               visibility: ({ controls }: ControlPanelsContainerProps) =>
                 !controls?.server_pagination?.value,
             },
