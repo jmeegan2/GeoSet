@@ -35,6 +35,8 @@ import {
   viewport,
   mapboxStyle,
   autozoom,
+  minZoom,
+  maxZoom,
   lineWidth,
 } from '../../utilities/Shared_DeckGL';
 import { dndGeojsonColumn } from '../../utilities/sharedDndControls';
@@ -53,7 +55,7 @@ const config: ControlPanelConfig = {
     },
     {
       label: t('Map'),
-      controlSetRows: [[mapboxStyle, viewport], [autozoom]],
+      controlSetRows: [[mapboxStyle, viewport], [autozoom], [minZoom, maxZoom]],
     },
     {
       label: t('GeoJson Settings'),

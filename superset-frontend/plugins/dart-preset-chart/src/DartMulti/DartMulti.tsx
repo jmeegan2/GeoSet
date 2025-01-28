@@ -31,17 +31,17 @@ import {
   SupersetClient,
   usePrevious,
 } from '@superset-ui/core';
-import { Layer } from 'deck.gl/typed';
 import {
   DeckGLContainerHandle,
   DeckGLContainerStyledWrapper,
 } from '../DeckGLContainer';
 import { getExploreLongUrl } from '../utils/explore';
-import layerGenerators from '../layers';
+import layerGenerators, { layerStateGenerator } from '../layers';
 import { Viewport } from '../utils/fitViewport';
 import { DeckLegend, Legend } from '../utilities/legend';
 import { TooltipProps } from '../components/Tooltip';
 import { Row } from '../utilities/flyout';
+import { LayerState } from '../types';
 
 export type DeckMultiProps = {
   formData: QueryFormData;
@@ -57,7 +57,7 @@ export type DeckMultiProps = {
 
 type SubsliceLayerEntry = {
   sliceId: number;
-  layer: Layer;
+  layerState: LayerState;
   legend: Legend;
 };
 
@@ -132,6 +132,16 @@ const DeckMulti = (props: DeckMultiProps) => {
                   setFlyoutRows,
                 );
 
+                const newLayerStateOptions = {
+                  minZoom: subsliceCopy.form_data.minZoom,
+                  maxZoom: subsliceCopy.form_data.maxZoom,
+                };
+
+                const newLayerState = layerStateGenerator(
+                  newLayer,
+                  newLayerStateOptions,
+                );
+
                 const legend = new Legend();
                 legend.name = subslice.slice_name;
 
@@ -159,7 +169,7 @@ const DeckMulti = (props: DeckMultiProps) => {
                   ...currentLayers,
                   {
                     sliceId: subsliceCopy.slice_id,
-                    layer: newLayer,
+                    layerState: newLayerState,
                     legend,
                   },
                 ]);
@@ -187,7 +197,7 @@ const DeckMulti = (props: DeckMultiProps) => {
       formData.deck_slices.indexOf(b.sliceId) -
       formData.deck_slices.indexOf(a.sliceId),
   );
-  const layers = subSlicesLayers.map(entry => entry.layer);
+  const layerStates = subSlicesLayers.map(entry => entry.layerState);
 
   const legends = subSlicesLayers.reduce<Record<number, Legend>>(
     (acc, entry) => {
@@ -203,7 +213,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         ref={containerRef}
         mapboxApiAccessToken={payload.data.mapboxApiKey}
         viewport={viewport || props.viewport}
-        layers={layers}
+        layerStates={layerStates}
         mapStyle={formData.mapbox_style}
         setControlValue={setControlValue}
         onViewportChange={setViewport}

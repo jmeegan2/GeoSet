@@ -18,6 +18,7 @@
  */
 // range and point actually have different value ranges
 // and also are different concept-wise
+import { Layer } from 'deck.gl/typed';
 
 export type Range = [number, number];
 export type Point = [number, number];
@@ -27,3 +28,12 @@ export interface ColorType {
   b: number;
   a: number;
 }
+
+export type LayerState = {
+  id: string;
+  layer: Layer;
+  options: {
+    minZoom: number;
+    maxZoom: number;
+  };
+};

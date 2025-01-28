@@ -17,11 +17,15 @@
  * under the License.
  */
 /* eslint camelcase: 0 */
-import { getLayer as deck_dart_geojson } from './DartGeojson/DartGeojson';
-
+import {
+  getLayerState as deck_dart_geojson_State,
+  getLayer as deck_dart_geojson,
+} from './DartGeojson/DartGeojson';
 
 const layerGenerators = {
   deck_dart_geojson,
 };
+
+export const layerStateGenerator = deck_dart_geojson_State;
 
 export default layerGenerators;
