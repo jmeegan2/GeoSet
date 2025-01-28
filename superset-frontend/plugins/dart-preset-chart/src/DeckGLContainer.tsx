@@ -38,6 +38,7 @@ import { Row, Flyout } from './utilities/flyout';
 import Tooltip, { TooltipProps } from './components/Tooltip';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Viewport } from './utils/fitViewport';
+import { LayerState } from './types';
 
 const TICK = 250; // milliseconds
 
@@ -49,7 +50,7 @@ export type DeckGLContainerProps = {
   children?: ReactNode;
   width: number;
   height: number;
-  layers: (Layer | (() => Layer))[];
+  layerStates: LayerState[];
   onViewportChange?: (viewport: Viewport) => void;
 };
 
@@ -61,6 +62,16 @@ export const DeckGLContainer = memo(
     const prevViewport = usePrevious(props.viewport);
     const [flyoutRows, setFlyoutRows] = useState<Row[]>([]);
     const [flyoutOpen, openFlyout] = useState<boolean>(false);
+    const [layerStates, setLayerStates] = useState(() =>
+      props.layerStates.map(ls => {
+        const { layer, options } = ls;
+        return {
+          id: layer.id,
+          layer: layer.clone({ visible: false }), // Initially hide all layers
+          options,
+        };
+      }),
+    );
 
     useImperativeHandle(
       ref,
@@ -97,17 +108,23 @@ export const DeckGLContainer = memo(
       },
       [],
     );
+    const getLayerObjects = useCallback(
+      () => layerStates.map(layerState => layerState.layer) as Layer[],
+      [layerStates],
+    );
 
-    const layers = useCallback(() => {
-      // Support for layer factory
-      if (props.layers.some(l => typeof l === 'function')) {
-        return props.layers.map(l =>
-          typeof l === 'function' ? l() : l,
-        ) as Layer[];
-      }
-
-      return props.layers as Layer[];
-    }, [props.layers]);
+    useEffect(() => {
+      setLayerStates(
+        props.layerStates.map(ls => {
+          const { layer, options } = ls;
+          return {
+            id: layer.id,
+            layer: layer.clone({ visible: false }), // Reapply initial hidden state on props change
+            options,
+          };
+        }),
+      );
+    }, [props.layerStates]);
 
     const handleMapLoad = useCallback(event => {
       const map = event.target;
@@ -116,8 +133,32 @@ export const DeckGLContainer = memo(
         unit: 'imperial',
       });
       map.addControl(scaleControl, 'top-right');
-    }, []);
 
+      const updateLayerVisibility = () => {
+        const currZoom = map.getZoom();
+        setLayerStates(prevLayerStates =>
+          prevLayerStates.map(ls => {
+            const { layer, options } = ls;
+
+            const isVisible =
+              (!options.minZoom || currZoom >= options.minZoom) &&
+              (!options.maxZoom || currZoom <= options.maxZoom);
+
+            return {
+              id: layer.id,
+              layer: layer.clone({ visible: isVisible }),
+              options,
+            };
+          }),
+        );
+      };
+
+      // Calculate initial visibility based on current zoom
+      updateLayerVisibility();
+
+      // Update visibility on zoom level change
+      map.on('zoom', updateLayerVisibility);
+    }, []);
     const { children = null, height, width } = props;
 
     return (
@@ -127,7 +168,7 @@ export const DeckGLContainer = memo(
             controller
             width={width}
             height={height}
-            layers={layers()}
+            layers={getLayerObjects()}
             viewState={viewState}
             glOptions={{ preserveDrawingBuffer: true }}
             onViewStateChange={onViewStateChange}

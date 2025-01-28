@@ -32,7 +32,7 @@ import {
 } from '../../DeckGLContainer';
 import { getSvg } from '../../utils/svgs';
 import { hexToRGB } from '../../utils/colors';
-import { Row } from '../../utilities/flyout'; 
+import { Row } from '../../utilities/flyout';
 import sandboxedEval from '../../utils/sandbox';
 import { commonLayerProps } from '../common';
 import TooltipRow from '../../TooltipRow';
@@ -82,7 +82,12 @@ const recurseGeoJson = (
 ) => {
   if (node?.features) {
     node.features.forEach((obj: JsonObject) => {
-      recurseGeoJson(obj, propOverrides, node.extraProps || extraProps, node.flyoutProps || flyoutProps);
+      recurseGeoJson(
+        obj,
+        propOverrides,
+        node.extraProps || extraProps,
+        node.flyoutProps || flyoutProps,
+      );
     });
   }
   if (node?.geometry) {
@@ -127,6 +132,17 @@ function setTooltipContent(o: JsonObject) {
 const getFillColor = (feature: JsonObject) => feature?.properties?.fillColor;
 const getLineColor = (feature: JsonObject) => feature?.properties?.strokeColor;
 
+export function getLayerState(
+  layer: GeoJsonLayer,
+  options: { minZoom: number; maxZoom: number },
+) {
+  return {
+    id: layer.id,
+    layer,
+    options,
+  };
+}
+
 export function getLayer(
   formData: QueryFormData,
   payload: JsonObject,
@@ -164,14 +180,14 @@ export function getLayer(
 
   function onSelect(o: JsonObject) {
     if (o != undefined) {
-      const keys =  Object.keys(o)
-      const rows = []
-      for(let i=0;i<keys.length;i++) {
-        const key = keys[i]; 
-        const value = Object.values(o)[i]; 
-        rows.push(new Row(key, value))
+      const keys = Object.keys(o);
+      const rows = [];
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        const value = Object.values(o)[i];
+        rows.push(new Row(key, value));
       }
-      setFlyoutRows(rows)
+      setFlyoutRows(rows);
     }
   }
 
@@ -268,13 +284,18 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     setTooltip,
     setFlyoutRows,
   );
+  const layerStateOptions = {
+    minZoom: formData.minZoom,
+    maxZoom: formData.maxZoom,
+  };
+  const layerState = getLayerState(layer, layerStateOptions);
 
   return (
     <DeckGLContainerStyledWrapper
       ref={containerRef}
       mapboxApiAccessToken={payload.data.mapboxApiKey}
       viewport={viewport}
-      layers={[layer]}
+      layerStates={[layerState]}
       mapStyle={formData.mapbox_style}
       setControlValue={setControlValue}
       height={height}
