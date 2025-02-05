@@ -103,28 +103,6 @@ export const autozoom = {
   },
 };
 
-export const maxZoom = {
-  name: 'maxZoom',
-  config: {
-    type: 'TextControl',
-    label: t('Max Display Zoom'),
-    renderTrigger: true,
-    description: t('Largest amount of zoom where layer is visible (0-22). Leave blank for absolute max.'),
-    dontRefreshOnChange: true,
-  },
-};
-
-export const minZoom = {
-  name: 'minZoom',
-  config: {
-    type: 'TextControl',
-    label: t('Min Display Zoom'),
-    renderTrigger: true,
-    description: t('Lowest amount of zoom where layer is visible (0-22). Leave blank for absolute min.'),
-    dontRefreshOnChange: true,
-  },
-};
-
 export const dimension = {
   name: 'dimension',
   config: {
@@ -135,7 +113,6 @@ export const dimension = {
     default: null,
   },
 };
-
 
 export const flyoutColumns = {
   name: 'flyout_columns',

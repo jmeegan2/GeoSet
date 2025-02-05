@@ -245,6 +245,11 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
   const { formData, payload, setControlValue, onAddFilter, height, width } =
     props;
 
+  let { minMaxZoomSlider } = formData;
+  if (minMaxZoomSlider === undefined) {
+    minMaxZoomSlider = [0, 22];
+  }
+
   const viewport: Viewport = useMemo(() => {
     if (formData.autozoom) {
       const points =
@@ -285,8 +290,8 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     setFlyoutRows,
   );
   const layerStateOptions = {
-    minZoom: formData.minZoom,
-    maxZoom: formData.maxZoom,
+    minZoom: minMaxZoomSlider[0],
+    maxZoom: minMaxZoomSlider[1],
   };
   const layerState = getLayerState(layer, layerStateOptions);
 

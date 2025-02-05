@@ -35,8 +35,6 @@ import {
   viewport,
   mapboxStyle,
   autozoom,
-  minZoom,
-  maxZoom,
   lineWidth,
 } from '../../utilities/Shared_DeckGL';
 import { dndGeojsonColumn } from '../../utilities/sharedDndControls';
@@ -55,7 +53,27 @@ const config: ControlPanelConfig = {
     },
     {
       label: t('Map'),
-      controlSetRows: [[mapboxStyle, viewport], [autozoom], [minZoom, maxZoom]],
+      controlSetRows: [
+        [mapboxStyle, viewport],
+        [autozoom],
+        [
+          {
+            name: 'minMaxZoomSlider',
+            config: {
+              type: 'SliderControl',
+              label: t('Zoom Levels for Layer Visibility'),
+              renderTrigger: true,
+              min: 0,
+              max: 22,
+              default: [0, 22],
+              range: true,
+              description: t(
+                'Select both smallest and largest amounts of zoom where layer is visible (0-22).',
+              ),
+            },
+          },
+        ],
+      ],
     },
     {
       label: t('GeoJson Settings'),
@@ -108,7 +126,7 @@ const config: ControlPanelConfig = {
       label: t('Map options'),
       tabOverride: 'customize',
       expanded: true,
-      controlSetRows: [[flyoutColumns],],
+      controlSetRows: [[flyoutColumns]],
     },
   ],
 };
