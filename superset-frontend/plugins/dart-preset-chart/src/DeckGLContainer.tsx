@@ -27,10 +27,11 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useRef,
   useState,
 } from 'react';
 import { isEqual } from 'lodash';
-import { StaticMap } from 'react-map-gl';
+import { StaticMap, MapRef } from 'react-map-gl';
 import DeckGL, { Layer } from 'deck.gl/typed';
 import { JsonObject, JsonValue, styled, usePrevious } from '@superset-ui/core';
 import mapboxgl from 'mapbox-gl';
@@ -56,6 +57,7 @@ export type DeckGLContainerProps = {
 
 export const DeckGLContainer = memo(
   forwardRef((props: DeckGLContainerProps, ref) => {
+    const mapRef = useRef<MapRef>(null);
     const [tooltip, setTooltip] = useState<TooltipProps['tooltip']>(null);
     const [lastUpdate, setLastUpdate] = useState<number | null>(null);
     const [viewState, setViewState] = useState(props.viewport);
@@ -65,9 +67,15 @@ export const DeckGLContainer = memo(
     const [layerStates, setLayerStates] = useState(() =>
       props.layerStates.map(ls => {
         const { layer, options } = ls;
+        const currZoom = mapRef.current?.getMap().getZoom() ?? 0;
+
+        const isVisible =
+          (!options.minZoom || currZoom >= options.minZoom) &&
+          (!options.maxZoom || currZoom <= options.maxZoom);
+
         return {
           id: layer.id,
-          layer: layer.clone({ visible: false }), // Initially hide all layers
+          layer: layer.clone({ visible: isVisible }),
           options,
         };
       }),
@@ -117,9 +125,14 @@ export const DeckGLContainer = memo(
       setLayerStates(
         props.layerStates.map(ls => {
           const { layer, options } = ls;
+          const currZoom = mapRef.current?.getMap().getZoom() ?? 0;
+
+          const isVisible =
+            (!options.minZoom || currZoom >= options.minZoom) &&
+            (!options.maxZoom || currZoom <= options.maxZoom);
           return {
             id: layer.id,
-            layer: layer.clone({ visible: false }), // Reapply initial hidden state on props change
+            layer: layer.clone({ visible: isVisible }),
             options,
           };
         }),
@@ -174,6 +187,7 @@ export const DeckGLContainer = memo(
             onViewStateChange={onViewStateChange}
           >
             <StaticMap
+              ref={mapRef}
               preserveDrawingBuffer
               mapStyle={props.mapStyle || 'light'}
               mapboxApiAccessToken={props.mapboxApiAccessToken}
