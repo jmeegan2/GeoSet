@@ -133,8 +133,8 @@ const DeckMulti = (props: DeckMultiProps) => {
                 );
 
                 const newLayerStateOptions = {
-                  minZoom: subsliceCopy.form_data.minZoom,
-                  maxZoom: subsliceCopy.form_data.maxZoom,
+                  minZoom: subsliceCopy.form_data.minMaxZoomSlider[0],
+                  maxZoom: subsliceCopy.form_data.minMaxZoomSlider[1],
                 };
 
                 const newLayerState = layerStateGenerator(
