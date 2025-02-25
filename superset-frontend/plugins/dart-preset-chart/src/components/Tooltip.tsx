@@ -48,12 +48,15 @@ const StyledDiv = styled.div<{
     left: ${left}px;
     padding: ${theme.gridUnit * 2}px;
     margin: ${theme.gridUnit * 2}px;
-    background: ${theme.colors.grayscale.dark2};
-    color: ${theme.colors.grayscale.light5};
+    background: ${theme.colors.grayscale.light5};
+    color: ${theme.colors.grayscale.dark2};
     maxWidth: 300px;
     fontSize: ${theme.typography.sizes.s}px;
     zIndex: 9;
     pointerEvents: none;
+    text-align: left;
+    border: 1px solid ${theme.colors.grayscale.light3};
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   `}
 `;
 
