@@ -75,7 +75,7 @@ interface LoadingProps {
   cover?: boolean;
 }
 
-const DEFAULT_TAB_ARR = ['2', '3'];
+const DEFAULT_TAB_ARR = ['2'];
 
 const WelcomeContainer = styled.div`
   background-color: ${({ theme }) => theme.colors.grayscale.light4};
