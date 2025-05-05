@@ -22,7 +22,7 @@ import {
   getLayer as deck_dart_geojson,
 } from './DartGeojson/DartGeojson';
 
-const layerGenerators = {
+const layerGenerators: Record<any, any> = {
   deck_dart_geojson,
 };
 

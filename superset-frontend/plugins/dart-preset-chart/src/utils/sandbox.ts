@@ -38,11 +38,11 @@ export default function sandboxedEval(
   context?: Context,
   opts?: RunningScriptOptions | string,
 ) {
-  const sandbox = {};
+  const sandbox: Record<string, any> = {};
   const resultKey = `SAFE_EVAL_${Math.floor(Math.random() * 1000000)}`;
   sandbox[resultKey] = {};
   const codeToEval = `${resultKey}=${code}`;
-  const sandboxContext = { ...GLOBAL_CONTEXT, ...context };
+  const sandboxContext: Record<string, any> = { ...GLOBAL_CONTEXT, ...context };
   Object.keys(sandboxContext).forEach(key => {
     sandbox[key] = sandboxContext[key];
   });

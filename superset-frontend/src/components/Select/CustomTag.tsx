@@ -16,9 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Tag as AntdTag } from 'antd';
-import { styled, useCSSTextTruncation } from '@superset-ui/core';
 import { MouseEvent } from 'react';
+// eslint-disable-next-line no-restricted-imports
+import { Tag as AntdTag } from 'antd'; // TODO: Remove antd
+import { styled, useCSSTextTruncation } from '@superset-ui/core';
 import { Tooltip } from '../Tooltip';
 import { CustomCloseIcon } from '../Tags/Tag';
 import { CustomTagProps } from './types';
