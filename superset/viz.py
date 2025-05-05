@@ -2360,6 +2360,10 @@ class DartDeckGeoJson(BaseDeckGLViz):
     @deprecated(deprecated_in="3.0")
     def get_properties(self, data: dict[str, Any]) -> dict[str, Any]:
         geojson = data[get_column_name(self.form_data["geojson"])]
+        
+        if not geojson and self.form_data['filter_nulls']:
+            return None
+        
         if is_dictionary_string(geojson):
             return json.loads(geojson)
         else:
