@@ -17,10 +17,12 @@
  * under the License.
  */
 import { ReactNode } from 'react';
-import * as d3array from 'd3-array';
+import * as d3arrayModule from 'd3-array';
 import { JsonObject, JsonValue, QueryFormData } from '@superset-ui/core';
 import sandboxedEval from '../utils/sandbox';
 import { TooltipProps } from '../components/Tooltip';
+
+const d3array: Record<string, any> = d3arrayModule as Record<string, any>;
 
 export function commonLayerProps(
   formData: QueryFormData,
@@ -59,8 +61,8 @@ export function commonLayerProps(
     };
   } else if (fd.flyout_columns && onSelect !== undefined) {
     onClick = (o: any) => {
-      if (o.object["flyoutProps"]) {
-        onSelect(o.object["flyoutProps"]);
+      if (o.object.flyoutProps) {
+        onSelect(o.object.flyoutProps);
       }
       return true;
     };
@@ -73,7 +75,7 @@ export function commonLayerProps(
   };
 }
 
-const percentiles = {
+const percentiles: { [index: string]: number } = {
   p1: 0.01,
   p5: 0.05,
   p95: 0.95,

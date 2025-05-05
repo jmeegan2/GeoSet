@@ -39,7 +39,7 @@ import TooltipRow from '../../TooltipRow';
 import fitViewport, { Viewport } from '../../utils/fitViewport';
 import { TooltipProps } from '../../components/Tooltip';
 
-const propertyMap = {
+const propertyMap: {[index: string]: string} = {
   fillColor: 'fillColor',
   color: 'fillColor',
   fill: 'fillColor',
@@ -106,7 +106,7 @@ const recurseGeoJson = (
 };
 
 function setTooltipContent(o: JsonObject) {
-  function divify(props: Object) {
+  function divify(props: Record<string, any>) {
     const content = Object.keys(props)
       .filter(key => !propertyKeys.includes(key))
       .map((prop, index) => (
