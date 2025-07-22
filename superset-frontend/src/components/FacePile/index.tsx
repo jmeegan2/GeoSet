@@ -25,6 +25,7 @@ import {
 import getOwnerName from 'src/utils/getOwnerName';
 import { Tooltip } from 'src/components/Tooltip';
 import { Avatar, AvatarGroup } from 'src/components/Avatar';
+import { modifyToContrast } from 'src/utils/accessibility';
 import { getRandomColor } from './utils';
 
 interface FacePileProps {
@@ -41,7 +42,11 @@ export default function FacePile({ users, maxCount = 4 }: FacePileProps) {
         const { first_name, last_name, id } = user;
         const name = getOwnerName(user);
         const uniqueKey = `${id}-${first_name}-${last_name}`;
-        const color = getRandomColor(uniqueKey, colorList);
+        const baseColor = getRandomColor(uniqueKey, colorList);
+
+        const color = isFeatureEnabled(FeatureFlag.AccessibilitySection508)
+          ? modifyToContrast(baseColor)
+          : baseColor;
         const avatarUrl = isFeatureEnabled(FeatureFlag.SlackEnableAvatars)
           ? `/api/v1/user/${id}/avatar.png`
           : undefined;

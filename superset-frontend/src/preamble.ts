@@ -24,7 +24,7 @@ import {
   configure,
   makeApi,
   // eslint-disable-next-line no-restricted-imports
-  supersetTheme, // TODO: DO not import theme directly
+  getSupersetTheme,
   initFeatureFlags,
 } from '@superset-ui/core';
 import { merge } from 'lodash';
@@ -70,7 +70,7 @@ setupFormatters(
 setupDashboardComponents();
 
 export const theme = merge(
-  supersetTheme,
+  getSupersetTheme(),
   bootstrapData.common.theme_overrides ?? {},
 );
 
