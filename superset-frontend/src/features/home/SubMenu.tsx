@@ -28,6 +28,7 @@ import { Menu, MenuMode, MainNav } from 'src/components/Menu';
 import Button, { OnClickHandler } from 'src/components/Button';
 import { Icons } from 'src/components/Icons';
 import { MenuObjectProps } from 'src/types/bootstrapTypes';
+import { FeatureFlag, isFeatureEnabled } from '@superset-ui/core';
 
 const StyledHeader = styled.div`
   margin-bottom: ${({ theme }) => theme.gridUnit * 4}px;
@@ -202,7 +203,7 @@ const SubMenuComponent: FunctionComponent<SubMenuProps> = props => {
               return (
                 <Menu.Item key={tab.label}>
                   <div
-                    role="tab"
+                    role={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? undefined : "tab"}
                     data-test={tab['data-test']}
                     className={tab.name === props.activeChild ? 'active' : ''}
                   >
@@ -220,7 +221,7 @@ const SubMenuComponent: FunctionComponent<SubMenuProps> = props => {
                   className={cx('no-router', {
                     active: tab.name === props.activeChild,
                   })}
-                  role="tab"
+                  role={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? undefined : "tab"}
                 >
                   <a href={tab.url} onClick={tab.onClick}>
                     {tab.label}

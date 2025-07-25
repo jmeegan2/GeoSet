@@ -25,6 +25,7 @@ import { useToasts } from 'src/components/MessageToasts/withToasts';
 import { shallowEqual, useSelector } from 'react-redux';
 import { RootState } from 'src/dashboard/types';
 import { Icons } from 'src/components/Icons';
+import { isFeatureEnabled, FeatureFlag } from '@superset-ui/core';
 
 export type URLShortLinkButtonProps = {
   dashboardId: number;
@@ -114,7 +115,7 @@ export default function URLShortLinkButton({
           e.stopPropagation();
           getCopyUrl();
         }}
-        aria-label={t('Copy URL')}
+        aria-label={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? 'Link' : t('Copy URL')}
       >
         <Icons.LinkOutlined iconSize="m" className="short-link-trigger" />
         &nbsp;

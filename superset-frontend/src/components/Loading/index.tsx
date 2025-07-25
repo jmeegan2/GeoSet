@@ -20,6 +20,7 @@
 import { styled } from '@superset-ui/core';
 import cls from 'classnames';
 import Loader from 'src/assets/images/loading.gif';
+import { isFeatureEnabled, FeatureFlag } from '@superset-ui/core';
 
 export type PositionOption =
   | 'floating'
@@ -61,7 +62,21 @@ export default function Loading({
   image,
   className,
 }: Props) {
-  return (
+  return isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Loading"
+      data-test="loading-indicator"
+      className={cls('loading-container', position, className)}
+    >
+      <LoaderImg
+        alt="Loading..."
+        src={image || Loader}
+        className="loading-image"
+      />
+    </div>
+  ) : (
     <LoaderImg
       className={cls('loading', position, className)}
       alt="Loading..."

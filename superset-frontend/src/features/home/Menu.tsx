@@ -34,6 +34,7 @@ import {
   MenuData,
 } from 'src/types/bootstrapTypes';
 import RightMenu from './RightMenu';
+import { FeatureFlag, isFeatureEnabled } from '@superset-ui/core';
 
 interface MenuProps {
   data: MenuData;
@@ -204,7 +205,9 @@ export function Menu({
   }: MenuObjectProps) => {
     if (url && isFrontendRoute) {
       return (
-        <MainNav.Item key={label} role="presentation">
+        <MainNav.Item key={label} 
+        role={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? 'menuitem' : 'presentation'}
+        >
           <NavLink role="button" to={url} activeClassName="is-active">
             {label}
           </NavLink>
@@ -213,7 +216,9 @@ export function Menu({
     }
     if (url) {
       return (
-        <MainNav.Item key={label}>
+        <MainNav.Item key={label}
+        role={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? 'menuitem' : 'presentation'}
+        >
           <a href={url}>{label}</a>
         </MainNav.Item>
       );
@@ -236,7 +241,9 @@ export function Menu({
           }
           if (typeof child !== 'string') {
             return (
-              <MainNav.Item key={`${child.label}`}>
+              <MainNav.Item key={`${child.label}`}
+                role={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? 'menuitem' : 'presentation'}
+              >
                 {child.isFrontendRoute ? (
                   <NavLink
                     to={child.url || ''}
@@ -257,7 +264,7 @@ export function Menu({
     );
   };
   return (
-    <StyledHeader className="top" id="main-menu" role="navigation">
+    <StyledHeader className="top" id="main-menu" role={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? undefined : 'navigation'}>
       <Row>
         <Col md={16} xs={24}>
           <Tooltip
