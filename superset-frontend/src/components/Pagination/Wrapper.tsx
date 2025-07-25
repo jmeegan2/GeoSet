@@ -22,6 +22,7 @@ import { Next } from './Next';
 import { Prev } from './Prev';
 import { Item } from './Item';
 import { Ellipsis } from './Ellipsis';
+import { isFeatureEnabled, FeatureFlag } from '@superset-ui/core';
 
 interface PaginationProps {
   children: JSX.Element | JSX.Element[];
@@ -76,7 +77,7 @@ const PaginationList = styled.ul`
 `;
 
 function Pagination({ children }: PaginationProps) {
-  return <PaginationList role="navigation">{children}</PaginationList>;
+  return <PaginationList role={isFeatureEnabled(FeatureFlag.AccessibilitySection508) ? undefined : "navigation"}>{children}</PaginationList>;
 }
 
 Pagination.Next = Next;

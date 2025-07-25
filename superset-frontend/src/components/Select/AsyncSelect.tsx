@@ -85,6 +85,7 @@ import {
   DEFAULT_SORT_COMPARATOR,
 } from './constants';
 import { customTagRender } from './CustomTag';
+import { isFeatureEnabled, FeatureFlag } from '@superset-ui/core';
 
 const Error = ({ error }: { error: string }) => (
   <StyledError>
@@ -149,6 +150,81 @@ const AsyncSelect = forwardRef(
     }: AsyncSelectProps,
     ref: RefObject<AsyncSelectRef>,
   ) => {
+
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      if (!isFeatureEnabled(FeatureFlag.AccessibilitySection508)) return; 
+      if (!containerRef.current) return;
+    
+      const observer = new MutationObserver(() => {
+        const searchInput = containerRef.current?.querySelector<HTMLInputElement>(
+          'input.ant-select-selection-search-input'
+        );
+        
+        if (searchInput) {
+          console.log("Modifying attributes via MutationObserver");
+          searchInput.setAttribute('type', 'text');
+          searchInput.setAttribute('role', 'combobox');
+          searchInput.setAttribute('aria-expanded', 'false');
+          searchInput.removeAttribute('aria-owns');
+          searchInput.removeAttribute('aria-haspopup');
+          searchInput.removeAttribute('aria-controls');
+          searchInput.removeAttribute('aria-activedescendant');
+        }
+      });
+    
+      observer.observe(containerRef.current, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-owns', 'aria-haspopup', 'aria-controls', 'aria-activedescendant']
+      });
+    
+      return () => observer.disconnect();
+    }, []); 
+
+
+    useEffect(() => {
+      if (!isFeatureEnabled(FeatureFlag.AccessibilitySection508)) return; 
+      if (!containerRef.current) return;
+
+      const antSelectDiv = containerRef.current.querySelector(
+        '.ant-select'
+      ) as HTMLElement | null;
+      if (antSelectDiv) {
+        antSelectDiv.removeAttribute('aria-expanded');
+      }
+
+      // Update hidden search input as a combobox
+      const searchInput = containerRef.current.querySelector<HTMLInputElement>(
+        'input.ant-select-selection-search-input'
+      );
+            
+      if (searchInput) {
+        searchInput.setAttribute('type', 'text');
+        searchInput.setAttribute('role', 'combobox');
+
+        searchInput.setAttribute('aria-expanded', 'false');
+
+        searchInput.removeAttribute('aria-owns');
+        searchInput.removeAttribute('aria-haspopup');
+        searchInput.removeAttribute('aria-controls');
+        searchInput.removeAttribute('aria-activedescendant');
+
+        // Wire up listbox → input relationship
+        const listbox = containerRef.current.querySelector<HTMLElement>(
+          '[role="listbox"]'
+        );
+        if (listbox) {
+          const listId = `${searchInput.id}_list`;
+          listbox.setAttribute('id', listId);
+          searchInput.setAttribute('aria-controls', listId);
+        }
+      }
+
+    }, []);
+
     const isSingleMode = mode === 'single';
     const [selectValue, setSelectValue] = useState(value);
     const [inputValue, setInputValue] = useState('');
@@ -594,7 +670,7 @@ const AsyncSelect = forwardRef(
     );
 
     return (
-      <StyledContainer headerPosition={headerPosition}>
+      <StyledContainer ref={containerRef} headerPosition={headerPosition}>
         {header && (
           <StyledHeader headerPosition={headerPosition}>{header}</StyledHeader>
         )}
