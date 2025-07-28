@@ -19,6 +19,7 @@
 import type Owner from 'src/types/Owner';
 import {
   getCategoricalSchemeRegistry,
+  getSupersetTheme,
   isFeatureEnabled,
   FeatureFlag,
 } from '@superset-ui/core';
@@ -35,9 +36,21 @@ interface FacePileProps {
 
 const colorList = getCategoricalSchemeRegistry().get()?.colors ?? [];
 
+const theme = getSupersetTheme();
+
 export default function FacePile({ users, maxCount = 4 }: FacePileProps) {
   return (
-    <AvatarGroup max={{ count: maxCount }}>
+    <AvatarGroup
+      max={{
+        count: maxCount,
+        style: isFeatureEnabled(FeatureFlag.AccessibilitySection508)
+          ? {
+              backgroundColor: theme.colors.text.help,
+              color: theme.colors.grayscale.light5,
+            }
+          : undefined,
+      }}
+    >
       {users.map(user => {
         const { first_name, last_name, id } = user;
         const name = getOwnerName(user);
