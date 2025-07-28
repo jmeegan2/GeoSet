@@ -26,6 +26,8 @@ import {
   // eslint-disable-next-line no-restricted-imports
   getSupersetTheme,
   initFeatureFlags,
+  isFeatureEnabled,
+  FeatureFlag,
 } from '@superset-ui/core';
 import { merge } from 'lodash';
 import setupClient from './setup/setupClient';
@@ -42,16 +44,20 @@ if (process.env.WEBPACK_MODE === 'development') {
 // eslint-disable-next-line import/no-mutable-exports
 const bootstrapData = getBootstrapData();
 
+// Configure feature flags
+initFeatureFlags(bootstrapData.common.feature_flags);
+
 // Configure translation
 if (typeof window !== 'undefined') {
+  if (isFeatureEnabled(FeatureFlag.AccessibilitySection508)) {
+    document.documentElement.lang = bootstrapData.common.locale || 'en';
+  }
+
   configure({ languagePack: bootstrapData.common.language_pack });
   dayjs.locale(bootstrapData.common.locale);
 } else {
   configure();
 }
-
-// Configure feature flags
-initFeatureFlags(bootstrapData.common.feature_flags);
 
 // Setup SupersetClient
 setupClient();

@@ -46,10 +46,10 @@ ul.dropdown__menu svg {
 }
 
 :root {
-  --ifm-color-primary: #20a7c9;
-  --ifm-color-primary-dark: #1985a0;
-  --ifm-color-primary-darker: #t;
-  --ifm-color-primary-darkest: #ffffff;
+  --ifm-color-primary: #18809A;
+  --ifm-color-primary-dark: #13677C;
+  --ifm-color-primary-darker: #145D71;
+  --ifm-color-primary-darkest: #125568;
   --ifm-color-primary-light: #79cade;
   --ifm-color-primary-lighter: #a5dbe9;
   --ifm-color-primary-lightest: #d2edf4;
@@ -70,10 +70,10 @@ ul.dropdown__menu svg {
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
+  --ifm-color-primary: #18816A;
+  --ifm-color-primary-dark: #167963;
+  --ifm-color-primary-darker: #146B58;
+  --ifm-color-primary-darkest: #115F4E;
   --ifm-color-primary-light: #29d5b0;
   --ifm-color-primary-lighter: #32d8b4;
   --ifm-color-primary-lightest: #4fddbf;

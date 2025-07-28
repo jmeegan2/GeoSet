@@ -22,7 +22,7 @@ import logger from './logging';
 // check into source control. We're hardcoding the supported flags for now.
 export enum FeatureFlag {
   // PLEASE KEEP THE LIST SORTED ALPHABETICALLY
-  AccessibilitySection508 = 'ACCESSIBILITY_SECTION_508', // Turn on accessibility changes for 508 compliance requirements
+  AccessibilitySection508 = 'ACCESSIBILITY_SECTION_508',
   AlertsAttachReports = 'ALERTS_ATTACH_REPORTS',
   AlertReports = 'ALERT_REPORTS',
   AlertReportTabs = 'ALERT_REPORT_TABS',
