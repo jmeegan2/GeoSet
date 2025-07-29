@@ -199,6 +199,20 @@ const config: ControlPanelConfig = {
         [jsColumns],
         [jsDataMutator],
         [jsTooltip],
+        [
+          {
+            name: 'tooltip_note',
+            config: {
+               type: 'TextControl',
+               label: t('Tooltip Note'),
+               renderTrigger: true,
+               default: '',
+               description: t(
+                 'This text will appear at the bottom of every polygon tooltip',
+               ),
+             },
+          },
+        ],
         [jsOnclickHref],
       ],
     },
