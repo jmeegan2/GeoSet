@@ -37,11 +37,14 @@ const StyledDiv = styled.div<{ top: number; left: number }>`
     top: ${top}px;
     left: ${left}px;
     padding: ${theme.gridUnit * 2}px;
-    margin: ${theme.gridUnit * 2}px;
-    background: ${theme.colors.grayscale.dark2};
-    color: ${theme.colors.grayscale.light5};
-    maxWidth: 300px;
-    fontSize: ${theme.typography.sizes.s}px;
+    margin: ${theme.gridUnit}px;
+    background: ${theme.colors.grayscale.light5};                
+    color: ${theme.colors.grayscale.dark1};
+    border: 1px solid ${theme.colors.grayscale.dark1}
+    border-radius: ${theme.gridUnit}px;
+    max-width: 200px;
+    white-space: normal;
+    font-size: ${theme.typography.sizes.s}px;
     zIndex: 9;
     pointerEvents: none;
   `}

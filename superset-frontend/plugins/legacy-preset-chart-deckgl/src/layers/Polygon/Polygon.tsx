@@ -27,7 +27,6 @@ import {
   JsonObject,
   JsonValue,
   QueryFormData,
-  t,
 } from '@superset-ui/core';
 
 import { PolygonLayer } from '@deck.gl/layers';
@@ -61,32 +60,59 @@ function getElevation(
 }
 
 function setTooltipContent(formData: PolygonFormData) {
-  return (o: JsonObject) => {
-    const metricLabel = formData?.metric?.label || formData?.metric;
+  return (info: { object?: any }) => {
+    const raw = info.object || {};
+    const props: Record<string, any> = raw.extraProps || {};
 
-    return (
-      <div className="deckgl-tooltip">
-        {o.object?.name && (
-          <TooltipRow
-            // eslint-disable-next-line prefer-template
-            label={t('name') + ': '}
-            value={`${o.object.name}`}
-          />
-        )}
-        {o.object?.[formData?.line_column] && (
-          <TooltipRow
-            label={`${formData.line_column}: `}
-            value={`${o.object[formData.line_column]}`}
-          />
-        )}
-        {formData?.metric && (
-          <TooltipRow
-            label={`${metricLabel}: `}
-            value={`${o.object?.[metricLabel]}`}
-          />
-        )}
-      </div>
-    );
+    // try the user‑selected js_columns first
+    const jsCols = formData.js_columns || [];
+    const jsRows = (jsCols as any[])
+      .map((col, i) => {
+        let key: string;
+        let label: string;
+        if (typeof col === 'string') {
+          key = col;
+          label = col;
+        } else {
+          key = col.sqlExpression ?? col.value ?? col.column_name;
+          label = col.label || key;
+        }
+        const val = props[key];
+        if (val == null) return null;
+        return <TooltipRow key={i} label={`${label}: `} value={`${val}`} />;
+      })
+      .filter(Boolean);
+
+    // if no js_columns (or none matched), fall back to all extraProps
+    const fallbackRows = Object.entries(props).map(([key, val], i) => (
+      <TooltipRow key={i} label={`${key}: `} value={`${val}`} />
+    ));
+
+    // pick whichever set of rows is non‑empty
+    const rows = jsRows.length > 0 ? jsRows : fallbackRows;
+
+    // append note (if provided)
+    const note = formData.tooltip_note?.trim();
+    if (note) {
+      rows.push(
+        <div
+          key="__note"
+          style={{
+            marginTop: 8,
+            fontSize: '10px',
+            color: '#555',
+            fontStyle: 'normal',
+          }}
+        >
+          <strong>Note:</strong> {note}
+        </div>,
+      );
+    }
+
+    if (!rows.length) {
+      return null;
+    }
+    return <div className="deckgl-tooltip">{rows}</div>;
   };
 }
 
@@ -132,12 +158,7 @@ export function getLayer(
     return baseColor;
   };
 
-  const tooltipContentGenerator =
-    fd.line_column &&
-    fd.metric &&
-    ['json', 'geohash', 'zipcode'].includes(fd.line_type)
-      ? setTooltipContent(fd)
-      : () => null;
+  const tooltipContentGenerator = setTooltipContent(formData);
 
   return new PolygonLayer({
     id: `path-layer-${fd.slice_id}` as const,
@@ -162,6 +183,7 @@ export type PolygonFormData = QueryFormData & {
   num_buckets: string;
   linear_color_scheme: string | string[];
   opacity: number;
+  tooltip_note?: string;
 };
 export type DeckGLPolygonProps = {
   formData: PolygonFormData;
