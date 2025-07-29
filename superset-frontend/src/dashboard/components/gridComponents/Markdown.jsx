@@ -382,7 +382,10 @@ class Markdown extends PureComponent {
                   ref={dragSourceRef}
                   className="dashboard-component dashboard-component-chart-holder"
                   data-test="dashboard-component-chart-holder"
-                >
+                  role="document"
+                  aria-live="polite"
+                  aria-atomic="true"
+               >
                   {editMode && (
                     <HoverMenu position="top">
                       <DeleteComponentButton
