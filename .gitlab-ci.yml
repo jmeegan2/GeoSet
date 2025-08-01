@@ -1,8 +1,8 @@
 variables:
    # update the sprint number at the start of each sprint
-  SPRINT_NUMBER: "36"
+  SPRINT_NUMBER: "40"
   # increment with each merge to main and reset to 0 at the start of each sprint
-  VALUE_INCREMENT: "2"
+  VALUE_INCREMENT: "1"
 
   CODE_DIRECTORY: ./
   DOCKER_FILE: Dockerfile
@@ -11,22 +11,24 @@ default:
   tags:
     - live-dart-development
 
-
-# workflow:
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-#     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
-#       when: never
-#     - if: $CI_COMMIT_BRANCH == "main"
+workflow:
+  rules:
+    - when: always # Default tag and image
+      variables:
+        VERSION_TAG: "$CI_PIPELINE_ID-dev"
+        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID"
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        VERSION_TAG: "$SPRINT_NUMBER.$VALUE_INCREMENT"
+        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT"
 
 stages:
   - build
   - security-test
   - security-scan
   - testing-jobs
-  # - automated-testing
 
-Build Dev Image and Push to Registry:
+Build Image and Push to Registry:
   image:
     name: quay.io/buildah/stable:v1.35.3
   stage: build
@@ -34,38 +36,8 @@ Build Dev Image and Push to Registry:
   script:
     - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - export STORAGE_DRIVER=vfs
-    - sed -i "s/0.0.0-dev/$CI_PIPELINE_ID-dev/" ./superset-frontend/package.json ./superset-frontend/package-lock.json
+    - sed -i "s/0.0.0-dev/$VERSION_TAG/" ./superset-frontend/package.json ./superset-frontend/package-lock.json
     - buildah build -t $FULL_IMAGE_NAME --platform linux/amd64 --target dev .
     - buildah push $FULL_IMAGE_NAME
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      variables:
-        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
-
-Build Release Image and Push to Registry:
-  image:
-    name: quay.io/buildah/stable:v1.35.3
-  stage: build
-  needs: []
-  script:
-    - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
-    - export STORAGE_DRIVER=vfs
-    - sed -i "s/0.0.0-dev/$SPRINT_NUMBER.$VALUE_INCREMENT/" ./superset-frontend/package.json ./superset-frontend/package-lock.json
-    - buildah build -t $FULL_IMAGE_NAME --platform linux/amd64 --target dev .
-    - buildah push $FULL_IMAGE_NAME
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      variables:
-        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT
-
-
-
-# multi project pipeline downstream jobs for connecting to test repo and running that pipeline
-# Dast Scan:
-#   variables:
-#     SYSTEM_NAME: dart
-#   stage: testing-jobs
-#   trigger:
-#     project: systems/dart/testing
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
