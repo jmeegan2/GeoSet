@@ -17,7 +17,7 @@
  * under the License.
  */
 import { memo, useCallback, useMemo, useRef } from 'react';
-import { GeoJsonLayer } from 'deck.gl/typed';
+import { GeoJsonLayer } from '@deck.gl/layers';
 import geojsonExtent from '@mapbox/geojson-extent';
 import {
   HandlerFunction,
@@ -25,6 +25,8 @@ import {
   JsonValue,
   QueryFormData,
 } from '@superset-ui/core';
+
+import type { Feature, GeoJsonProperties, Geometry } from 'geojson';
 
 import {
   DeckGLContainerHandle,
@@ -39,7 +41,7 @@ import TooltipRow from '../../TooltipRow';
 import fitViewport, { Viewport } from '../../utils/fitViewport';
 import { TooltipProps } from '../../components/Tooltip';
 
-const propertyMap: {[index: string]: string} = {
+const propertyMap: { [index: string]: string } = {
   fillColor: 'fillColor',
   color: 'fillColor',
   fill: 'fillColor',
@@ -194,7 +196,7 @@ export function getLayer(
   const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   return new GeoJsonLayer({
     id: `geojson-layer-${fd.slice_id}` as const,
-    data: features,
+    data: features as Feature<Geometry, GeoJsonProperties>[],
     extruded: fd.extruded,
     filled: fd.filled,
     stroked: fd.stroked,

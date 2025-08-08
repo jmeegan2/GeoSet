@@ -13,14 +13,14 @@ default:
 
 workflow:
   rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      variables:
+        VERSION_TAG: "$SPRINT_NUMBER.$VALUE_INCREMENT"
+        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT"
     - when: always # Default tag and image
       variables:
         VERSION_TAG: "$CI_PIPELINE_ID-dev"
         FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID"
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      variables:
-        VERSION_TAG: "$SPRINT_NUMBER.$VALUE_INCREMENT"
-        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT"
 
 stages:
   - build
