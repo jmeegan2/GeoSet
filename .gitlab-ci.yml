@@ -1,6 +1,6 @@
 variables:
    # update the sprint number at the start of each sprint
-  SPRINT_NUMBER: "40"
+  SPRINT_NUMBER: "41"
   # increment with each merge to main and reset to 0 at the start of each sprint
   VALUE_INCREMENT: "1"
 
