@@ -32,7 +32,8 @@ import {
 } from 'react';
 import { isEqual } from 'lodash';
 import { StaticMap, MapRef } from 'react-map-gl';
-import DeckGL, { Layer } from 'deck.gl/typed';
+import DeckGL from '@deck.gl/react';
+import { Layer } from '@deck.gl/core';
 import { JsonObject, JsonValue, styled, usePrevious } from '@superset-ui/core';
 import mapboxgl from 'mapbox-gl';
 import { Row, Flyout } from './utilities/flyout';
@@ -183,7 +184,6 @@ export const DeckGLContainer = memo(
             height={height}
             layers={getLayerObjects()}
             viewState={viewState}
-            glOptions={{ preserveDrawingBuffer: true }}
             onViewStateChange={onViewStateChange}
           >
             <StaticMap

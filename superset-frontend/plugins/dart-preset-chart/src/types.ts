@@ -18,7 +18,7 @@
  */
 // range and point actually have different value ranges
 // and also are different concept-wise
-import { Layer } from 'deck.gl/typed';
+import { Layer } from '@deck.gl/core';
 
 export type Range = [number, number];
 export type Point = [number, number];
