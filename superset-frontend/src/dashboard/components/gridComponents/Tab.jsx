@@ -319,6 +319,7 @@ const Tab = props => {
             onSaveTitle={handleChangeText}
             showTooltip={false}
             editing={editMode && isFocused}
+            {...(component.meta.text?.includes("Wildfire Map") && { "aria-hidden": true })}
           />
           {!editMode && !embeddedMode && (
             <AnchorLink
