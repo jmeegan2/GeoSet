@@ -177,7 +177,11 @@ export const DeckGLContainer = memo(
 
     return (
       <>
-        <div style={{ position: 'relative', width, height }}>
+        <div style={{ position: 'relative', width, height }}
+         aria-hidden="true"     
+         role="presentation"    
+         tabIndex={-1}          
+         >
           <DeckGL
             controller
             width={width}
