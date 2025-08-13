@@ -174,7 +174,7 @@ const DeckMulti = (props: DeckMultiProps) => {
                   },
                 ]);
               })
-              .catch(() => {});
+              .catch(() => { });
           }
         },
       );
@@ -208,7 +208,9 @@ const DeckMulti = (props: DeckMultiProps) => {
   );
 
   return (
-    <div>
+    <div 
+      aria-hidden="true"
+    >
       <DeckGLContainerStyledWrapper
         ref={containerRef}
         mapboxApiAccessToken={payload.data.mapboxApiKey}
