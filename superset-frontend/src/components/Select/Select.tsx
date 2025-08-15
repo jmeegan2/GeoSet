@@ -141,7 +141,6 @@ const Select = forwardRef(
         );
         
         if (searchInput) {
-          console.log("Modifying attributes via MutationObserver");
           searchInput.setAttribute('type', 'text');
           searchInput.setAttribute('role', 'combobox');
           searchInput.setAttribute('aria-expanded', 'false');

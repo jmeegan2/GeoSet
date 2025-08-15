@@ -270,14 +270,10 @@ export interface SupersetThemeProps {
   theme: SupersetTheme;
 }
 
-export const supersetTheme = isFeatureEnabled(
-  FeatureFlag.AccessibilitySection508,
-)
-  ? highContrastTheme
-  : defaultTheme;
-
 export function getSupersetTheme() {
   return isFeatureEnabled(FeatureFlag.AccessibilitySection508)
     ? highContrastTheme
     : defaultTheme;
 }
+
+export const supersetTheme = getSupersetTheme();

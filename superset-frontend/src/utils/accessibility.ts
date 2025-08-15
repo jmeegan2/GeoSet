@@ -70,6 +70,5 @@ export function modifyToContrast(
     }
   }
 
-  console.log('Colors:', baseColor, rgbToHex(bestMatch));
   return rgbToHex(bestMatch);
 }

@@ -56,6 +56,12 @@ export type DeckGLContainerProps = {
   onViewportChange?: (viewport: Viewport) => void;
 };
 
+export const StaticMapStyledWrapper = styled(StaticMap)`
+  .mapboxgl-ctrl-logo {
+    display: none !important;
+  }
+`;
+
 export const DeckGLContainer = memo(
   forwardRef((props: DeckGLContainerProps, ref) => {
     const mapRef = useRef<MapRef>(null);
@@ -186,10 +192,10 @@ export const DeckGLContainer = memo(
             viewState={viewState}
             onViewStateChange={onViewStateChange}
           >
-            <StaticMap
+            <StaticMapStyledWrapper
               ref={mapRef}
               preserveDrawingBuffer
-              mapStyle={props.mapStyle || 'light'}
+              mapStyle={props.mapStyle ?? 'light'}
               mapboxApiAccessToken={props.mapboxApiAccessToken}
               onLoad={handleMapLoad}
             />

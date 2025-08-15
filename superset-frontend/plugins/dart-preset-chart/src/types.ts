@@ -28,6 +28,20 @@ export interface ColorType {
   b: number;
   a: number;
 }
+export function toHex(color: ColorType): string {
+  const hex = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n)))
+      .toString(16)
+      .padStart(2, '0');
+
+  const alpha = Math.round(color.a * 255);
+
+  return `#${hex(color.r)}${hex(color.g)}${hex(color.b)}${hex(alpha)}`;
+}
+
+export function toColorType([r, g, b, a]: number[]): ColorType {
+  return { r, g, b, a };
+}
 
 export type LayerState = {
   id: string;
@@ -36,4 +50,13 @@ export type LayerState = {
     minZoom: number;
     maxZoom: number;
   };
+};
+
+export type LegendItem = {
+  style: {
+    fillColor: ColorType;
+    strokeColor: ColorType;
+  };
+  type: string;
+  description: string;
 };
