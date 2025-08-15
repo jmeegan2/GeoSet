@@ -27,6 +27,8 @@ import {
   jsDataMutator,
   jsTooltip,
   jsOnclickHref,
+  legendFormat,
+  legendPosition,
   fillColorPicker,
   strokeColorPicker,
   filled,
@@ -36,6 +38,7 @@ import {
   mapboxStyle,
   autozoom,
   lineWidth,
+  dimension,
 } from '../../utilities/Shared_DeckGL';
 import { dndGeojsonColumn } from '../../utilities/sharedDndControls';
 
@@ -111,6 +114,21 @@ const config: ControlPanelConfig = {
             },
           },
         ],
+        [legendPosition],
+        [legendFormat],
+        [
+          {
+            name: dimension.name,
+            config: {
+              ...dimension.config,
+              label: t('Categorical Color'),
+              description: t(
+                'Pick a dimension from which categorical colors are defined',
+              ),
+            },
+          },
+        ],
+        ['color_scheme'],
       ],
     },
     {
