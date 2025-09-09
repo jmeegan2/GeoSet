@@ -17,6 +17,7 @@
  * under the License.
  */
 
+export { default as CategoricalAcf } from './acf';
 export { default as CategoricalAirbnb } from './airbnb';
 export { default as CategoricalD3 } from './d3';
 export { default as CategoricalEcharts } from './echarts';
