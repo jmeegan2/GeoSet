@@ -105,16 +105,14 @@ const Tab = props => {
   const canEdit = useSelector(state => state.dashboardInfo.dash_edit_perm);
   const tabRef = useRef(null);
   
-  // Check if this tab should be hidden from screen readers
-  const shouldHideFromScreenReader = props.component.meta.text?.includes("Wildfire Map");
+  const shouldHideFromScreenReader =
+  props.component.meta.text?.includes("Wildfire Map") ||
+  props.component.meta.text?.includes("Foster Care Map");
 
-  /**
-   * Remove accessibility attributes from elements
-   */
+  // Remove accessibility attributes from elements
   const removeAriaAttributes = useCallback((element) => {
     if (!element) return;
 
-    // Get all attributes
     const attributes = Array.from(element.attributes || []);
     
     // Remove aria attributes except aria-hidden
@@ -124,14 +122,12 @@ const Tab = props => {
       }
     });
 
-    // Remove role, tabindex, title attributes
     ['role', 'tabindex', 'title'].forEach(attr => {
       if (element.hasAttribute(attr)) {
         element.removeAttribute(attr);
       }
     });
 
-    // Recursively process all child elements
     Array.from(element.children).forEach(child => {
       removeAriaAttributes(child);
     });
@@ -143,25 +139,21 @@ const Tab = props => {
       // Set aria-hidden on the entire tab
       tabRef.current.setAttribute('aria-hidden', 'true');
       
-      // Remove all other accessibility attributes
       removeAriaAttributes(tabRef.current);
       
       // Set up MutationObserver to handle dynamic content
       const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
-          // Handle newly added nodes
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               removeAriaAttributes(node);
             }
           });
           
-          // Handle attribute changes
           if (mutation.type === 'attributes' && mutation.target.nodeType === Node.ELEMENT_NODE) {
             const target = mutation.target;
             const attrName = mutation.attributeName;
             
-            // Re-remove aria attributes if they're added back (except aria-hidden on tab root)
             if (attrName && attrName.startsWith('aria-') && 
                 !(target === tabRef.current && attrName === 'aria-hidden')) {
               if (attrName !== 'aria-hidden') {
@@ -169,7 +161,6 @@ const Tab = props => {
               }
             }
             
-            // Re-remove role, tabindex, title if they're added back
             if (['role', 'tabindex', 'title'].includes(attrName)) {
               target.removeAttribute(attrName);
             }
@@ -187,12 +178,10 @@ const Tab = props => {
                          'aria-invalid', 'aria-pressed', 'aria-checked', 'role', 'tabindex', 'title']
       });
 
-      // Cleanup
       return () => observer.disconnect();
     }
   }, [shouldHideFromScreenReader, removeAriaAttributes]);
 
-  // Re-run cleanup after each render
   useEffect(() => {
     if (shouldHideFromScreenReader && tabRef.current) {
       const timeoutId = setTimeout(() => {
@@ -491,7 +480,6 @@ const Tab = props => {
 
   const tabContent = props.renderType === RENDER_TAB ? renderTab() : renderTabContent();
 
-  // Wrap with screen reader blocking if needed
   if (shouldHideFromScreenReader) {
     return (
       <div 
