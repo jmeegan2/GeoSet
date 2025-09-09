@@ -38,10 +38,10 @@ import {
 import { getExploreLongUrl } from '../utils/explore';
 import layerGenerators, { layerStateGenerator } from '../layers';
 import { Viewport } from '../utils/fitViewport';
-import { DeckLegend, Legend } from '../utilities/legend';
+import { DeckLegend } from '../utilities/legend';
 import { TooltipProps } from '../components/Tooltip';
 import { Row } from '../utilities/flyout';
-import { LayerState } from '../types';
+import { ColorType, LayerState, LegendItem, toColorType } from '../types';
 
 export type DeckMultiProps = {
   formData: QueryFormData;
@@ -58,7 +58,7 @@ export type DeckMultiProps = {
 type SubsliceLayerEntry = {
   sliceId: number;
   layerState: LayerState;
-  legend: Legend;
+  legends: LegendItem[];
 };
 
 const DeckMulti = (props: DeckMultiProps) => {
@@ -142,39 +142,59 @@ const DeckMulti = (props: DeckMultiProps) => {
                   newLayerStateOptions,
                 );
 
-                const legend = new Legend();
-                legend.name = subslice.slice_name;
+                const legends: LegendItem[] = [];
 
-                if (subsliceCopy.form_data.hasOwnProperty('icon_type')) {
-                  legend.icon_type = subsliceCopy.form_data.icon_type;
+                if (subsliceCopy.form_data.dimension) {
+                  const dim = subsliceCopy.form_data.dimension;
+
+                  // gather categories and colors from newLayer data
+                  const { data } = newLayer.props;
+
+                  const categoryMap = new Map<string, ColorType>();
+
+                  for (const d of data.features || data) {
+                    const category = d.extraProps[dim] || 'Uncategorized';
+                    const { color } = d;
+
+                    if (!categoryMap.has(category)) {
+                      categoryMap.set(category, toColorType(color));
+                    }
+                  }
+
+                  Array.from(categoryMap.entries()).forEach(
+                    ([label, color]) => {
+                      legends.push({
+                        type: subsliceCopy.form_data.icon_type,
+                        description: label,
+                        style: {
+                          fillColor: color,
+                          strokeColor:
+                            subsliceCopy.form_data.stroke_color_picker,
+                        },
+                      });
+                    },
+                  );
                 } else {
-                  legend.icon_type = 'circle';
+                  legends.push({
+                    type: subsliceCopy.form_data.icon_type,
+                    description: subslice.slice_name,
+                    style: {
+                      fillColor: subsliceCopy.form_data.fill_color_picker,
+                      strokeColor: subsliceCopy.form_data.stroke_color_picker,
+                    },
+                  });
                 }
-
-                let color = { r: 0, g: 0, b: 0 };
-                if (
-                  subsliceCopy.form_data.hasOwnProperty('fill_color_picker')
-                ) {
-                  color = subsliceCopy.form_data.fill_color_picker;
-                }
-                if (
-                  legend.icon_type === 'line' &&
-                  subsliceCopy.form_data.hasOwnProperty('stroke_color_picker')
-                ) {
-                  color = subsliceCopy.form_data.stroke_color_picker;
-                }
-                legend.fill_color = `rgb(${color.r}, ${color.g}, ${color.b})`;
 
                 setSubSlicesLayers(currentLayers => [
                   ...currentLayers,
                   {
                     sliceId: subsliceCopy.slice_id,
                     layerState: newLayerState,
-                    legend,
+                    legends,
                   },
                 ]);
               })
-              .catch(() => { });
+              .catch(() => {});
           }
         },
       );
@@ -199,18 +219,16 @@ const DeckMulti = (props: DeckMultiProps) => {
   );
   const layerStates = subSlicesLayers.map(entry => entry.layerState);
 
-  const legends = subSlicesLayers.reduce<Record<number, Legend>>(
-    (acc, entry) => {
-      acc[entry.sliceId] = entry.legend;
-      return acc;
-    },
-    {},
-  );
+  const legends: Record<number, LegendItem[]> = subSlicesLayers.reduce<
+    Record<number, LegendItem[]>
+  >((acc, entry) => {
+    acc[entry.sliceId] = entry.legends;
+    // acc.push(...entry.legends);
+    return acc;
+  }, []);
 
   return (
-    <div 
-      aria-hidden="true"
-    >
+    <div>
       <DeckGLContainerStyledWrapper
         ref={containerRef}
         mapboxApiAccessToken={payload.data.mapboxApiKey}
