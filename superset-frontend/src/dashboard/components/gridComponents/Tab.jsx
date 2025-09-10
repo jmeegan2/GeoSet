@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Fragment, useCallback, memo } from 'react';
+import { Fragment, useCallback, memo, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import { useDispatch, useSelector } from 'react-redux';
@@ -103,6 +103,96 @@ const renderDraggableContent = dropProps =>
 const Tab = props => {
   const dispatch = useDispatch();
   const canEdit = useSelector(state => state.dashboardInfo.dash_edit_perm);
+  const tabRef = useRef(null);
+  
+  const shouldHideFromScreenReader =
+  props.component.meta.text?.includes("Wildfire Map") ||
+  props.component.meta.text?.includes("Foster Care Map");
+
+  // Remove accessibility attributes from elements
+  const removeAriaAttributes = useCallback((element) => {
+    if (!element) return;
+
+    const attributes = Array.from(element.attributes || []);
+    
+    // Remove aria attributes except aria-hidden
+    attributes.forEach(attr => {
+      if (attr.name.startsWith('aria-') && attr.name !== 'aria-hidden') {
+        element.removeAttribute(attr.name);
+      }
+    });
+
+    ['role', 'tabindex', 'title'].forEach(attr => {
+      if (element.hasAttribute(attr)) {
+        element.removeAttribute(attr);
+      }
+    });
+
+    Array.from(element.children).forEach(child => {
+      removeAriaAttributes(child);
+    });
+  }, []);
+
+  // Effect to handle screen reader hiding
+  useEffect(() => {
+    if (shouldHideFromScreenReader && tabRef.current) {
+      // Set aria-hidden on the entire tab
+      tabRef.current.setAttribute('aria-hidden', 'true');
+      
+      removeAriaAttributes(tabRef.current);
+      
+      // Set up MutationObserver to handle dynamic content
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              removeAriaAttributes(node);
+            }
+          });
+          
+          if (mutation.type === 'attributes' && mutation.target.nodeType === Node.ELEMENT_NODE) {
+            const target = mutation.target;
+            const attrName = mutation.attributeName;
+            
+            if (attrName && attrName.startsWith('aria-') && 
+                !(target === tabRef.current && attrName === 'aria-hidden')) {
+              if (attrName !== 'aria-hidden') {
+                target.removeAttribute(attrName);
+              }
+            }
+            
+            if (['role', 'tabindex', 'title'].includes(attrName)) {
+              target.removeAttribute(attrName);
+            }
+          }
+        });
+      });
+
+      observer.observe(tabRef.current, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-label', 'aria-labelledby', 'aria-describedby', 'aria-expanded', 
+                         'aria-selected', 'aria-controls', 'aria-live', 'aria-atomic', 
+                         'aria-relevant', 'aria-busy', 'aria-disabled', 'aria-required',
+                         'aria-invalid', 'aria-pressed', 'aria-checked', 'role', 'tabindex', 'title']
+      });
+
+      return () => observer.disconnect();
+    }
+  }, [shouldHideFromScreenReader, removeAriaAttributes]);
+
+  useEffect(() => {
+    if (shouldHideFromScreenReader && tabRef.current) {
+      const timeoutId = setTimeout(() => {
+        removeAriaAttributes(tabRef.current);
+        tabRef.current.setAttribute('aria-hidden', 'true');
+      }, 0);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  });
+
   const handleChangeTab = useCallback(
     ({ pathToTabIndex }) => {
       props.setDirectPathToChild(pathToTabIndex);
@@ -388,7 +478,27 @@ const Tab = props => {
     renderTabChild,
   ]);
 
-  return props.renderType === RENDER_TAB ? renderTab() : renderTabContent();
+  const tabContent = props.renderType === RENDER_TAB ? renderTab() : renderTabContent();
+
+  if (shouldHideFromScreenReader) {
+    return (
+      <div 
+        ref={tabRef}
+        aria-hidden="true"
+        style={{ 
+          speak: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none'
+        }}
+      >
+        {tabContent}
+      </div>
+    );
+  }
+
+  return tabContent;
 };
 
 Tab.propTypes = propTypes;
