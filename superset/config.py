@@ -1840,8 +1840,6 @@ GUEST_TOKEN_VALIDATOR_HOOK = None
 #            cache_manager.cache.delete_memoized(func)
 #            cache_manager.cache.set(name, code, timeout=0)
 #
-
-
 DATASET_HEALTH_CHECK: Callable[[SqlaTable], str] | None = None
 
 # the advanced data type key should correspond to that set in the column metadata
