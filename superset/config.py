@@ -154,7 +154,7 @@ BUILD_NUMBER = None
 DEFAULT_VIZ_TYPE = "table"
 
 # default row limit when requesting chart data
-ROW_LIMIT = 50000
+ROW_LIMIT = 500000
 # default row limit when requesting samples from datasource in explore view
 SAMPLES_ROW_LIMIT = 1000
 # default row limit for native filters
@@ -188,7 +188,7 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 # or use `SUPERSET_SECRET_KEY` environment variable.
 # Use a strong complex alphanumeric string and use a tool to help you generate
 # a sufficiently random sequence, ex: openssl rand -base64 42"
-SECRET_KEY = os.environ.get("SUPERSET_SECRET_KEY") or CHANGE_ME_SECRET_KEY
+SECRET_KEY = "test"
 
 # The SQLAlchemy connection string.
 SQLALCHEMY_DATABASE_URI = (
@@ -1840,6 +1840,12 @@ GUEST_TOKEN_VALIDATOR_HOOK = None
 #            cache_manager.cache.delete_memoized(func)
 #            cache_manager.cache.set(name, code, timeout=0)
 #
+
+def FLASK_APP_MUTATOR(app):
+    from superset.extensions import appbuilder
+    from new_api.test import HelloApi
+    appbuilder.add_api(HelloApi)
+
 DATASET_HEALTH_CHECK: Callable[[SqlaTable], str] | None = None
 
 # the advanced data type key should correspond to that set in the column metadata
