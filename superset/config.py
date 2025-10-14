@@ -188,7 +188,7 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 # or use `SUPERSET_SECRET_KEY` environment variable.
 # Use a strong complex alphanumeric string and use a tool to help you generate
 # a sufficiently random sequence, ex: openssl rand -base64 42"
-SECRET_KEY = "test"
+SECRET_KEY = os.environ.get("SUPERSET_SECRET_KEY") or CHANGE_ME_SECRET_KEY
 
 # The SQLAlchemy connection string.
 SQLALCHEMY_DATABASE_URI = (
@@ -1841,10 +1841,6 @@ GUEST_TOKEN_VALIDATOR_HOOK = None
 #            cache_manager.cache.set(name, code, timeout=0)
 #
 
-def FLASK_APP_MUTATOR(app):
-    from superset.extensions import appbuilder
-    from new_api.test import HelloApi
-    appbuilder.add_api(HelloApi)
 
 DATASET_HEALTH_CHECK: Callable[[SqlaTable], str] | None = None
 
