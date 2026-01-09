@@ -487,6 +487,11 @@ function ExploreViewContainer(props) {
         }
         const { value: value1 } = controls[key];
         const { value: value2 } = lastControl;
+        // Use isEqual for arrays since areObjectsEqual with ignoreFields
+        // incorrectly treats arrays as equal (it wraps them and omit returns {})
+        if (Array.isArray(value1) && Array.isArray(value2)) {
+          return !isEqual(value1, value2);
+        }
         if (isObjectLike(value1) && isObjectLike(value2)) {
           return !areObjectsEqual(value1, value2, {
             ignoreFields: ['datasourceWarning'],
