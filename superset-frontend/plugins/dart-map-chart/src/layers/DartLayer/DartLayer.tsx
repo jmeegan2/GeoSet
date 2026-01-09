@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -280,9 +279,6 @@ export function getLayer(
   const features =
     (recurseGeoJson(payload.data, propOverrides) as GeoJsonFeature[]) || [];
   if (!features.length) {
-    console.warn(
-      '🚨 No features parsed from GeoJSON. Skipping layer rendering.',
-    );
     return null;
   }
 
@@ -350,12 +346,6 @@ export function getLayer(
     processedFeatures[0]?.geometry?.type,
   );
 
-  console.log('[DartLayer] Creating layer:', {
-    layerType,
-    featureCount: processedFeatures.length,
-    geometryType: processedFeatures[0]?.geometry?.type,
-  });
-
   switch (layerType) {
     // POINTS -- should be ScatterplotLayer or IconLayer (pointType is given)
     case 'Point': {
@@ -363,7 +353,6 @@ export function getLayer(
       if (pointType) {
         let iconName = pointType.replace('-icon', ''); // e.g. "fire-icon" -> "fire"
         if (!iconName) {
-          console.warn(`Icon "${iconName}" not found, using default circle.`);
           iconName = 'circle';
         }
         return new IconLayer({
@@ -402,12 +391,6 @@ export function getLayer(
         });
       }
 
-      console.log('[DartLayer] Creating ScatterplotLayer with:', {
-        id: `point-layer-${fd.slice_id}`,
-        dataLength: visibleFeatures.length,
-        filled: filled ?? fd.filled,
-        stroked: stroked ?? fd.stroked,
-      });
       return new ScatterplotLayer({
         id: `point-layer-${fd.slice_id}`,
         data: visibleFeatures as Feature<Geometry, GeoJsonProperties>[],
@@ -626,9 +609,8 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
 
   // Fetch Mapbox API key from backend and update when available
   // Use cached key for initial state (may already be available from pre-fetch)
-  const HARDCODED_MAPBOX_KEY = '';
   const [effectiveMapboxKey, setEffectiveMapboxKey] = useState(
-    getCachedMapboxApiKey() || mapboxApiKey || HARDCODED_MAPBOX_KEY,
+    getCachedMapboxApiKey() || mapboxApiKey || '',
   );
   useEffect(() => {
     // If we already have a valid key from props, use it
@@ -640,9 +622,6 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     fetchMapboxApiKey().then(key => {
       if (key) {
         setEffectiveMapboxKey(key);
-      } else {
-        // Fallback to hardcoded key if API returns nothing
-        setEffectiveMapboxKey(HARDCODED_MAPBOX_KEY);
       }
     });
   }, [mapboxApiKey]);
@@ -653,21 +632,21 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     toVersion: number;
   } | null>(null);
 
-  // useEffect(() => {
-  //   handleSchemaCheck(
-  //     formData.geojsonConfig,
-  //     formData.schemaVersion,
-  //     setControlValue,
-  //   ).then(result => {
-  //     setValidationError(result.error ?? null);
-  //     if (result.migrated && result.fromVersion && result.toVersion) {
-  //       setMigrationInfo({
-  //         fromVersion: result.fromVersion,
-  //         toVersion: result.toVersion,
-  //       });
-  //     }
-  //   });
-  // }, [formData.geojsonConfig, formData.schemaVersion, setControlValue]);
+  useEffect(() => {
+    handleSchemaCheck(
+      formData.geojsonConfig,
+      formData.schemaVersion,
+      setControlValue,
+    ).then(result => {
+      setValidationError(result.error ?? null);
+      if (result.migrated && result.fromVersion && result.toVersion) {
+        setMigrationInfo({
+          fromVersion: result.fromVersion,
+          toVersion: result.toVersion,
+        });
+      }
+    });
+  }, [formData.geojsonConfig, formData.schemaVersion, setControlValue]);
 
   const debouncedGeojsonConfig = useDebouncedValue(formData.geojsonConfig, 300);
   const [parsedGeojsonConfig, setParsedGeojsonConfig] = useState({});
