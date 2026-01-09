@@ -57,6 +57,7 @@ import ZoomConfigControl from './ZoomConfigControl/ZoomConfigControl';
 import NumberControl from './NumberControl';
 import TimeRangeControl from './TimeRangeControl';
 import ColorBreakpointsControl from './ColorBreakpointsControl';
+import DeckSlicesControl from './DeckSlicesControl';
 
 const extensionsRegistry = getExtensionsRegistry();
 const DateFilterControlExtension = extensionsRegistry.get(
@@ -81,6 +82,7 @@ const controlMap = {
   DndMetricSelect,
   FixedOrMetricControl,
   ColorBreakpointsControl,
+  DeckSlicesControl,
   HiddenControl,
   LayerConfigsControl,
   MapViewControl,

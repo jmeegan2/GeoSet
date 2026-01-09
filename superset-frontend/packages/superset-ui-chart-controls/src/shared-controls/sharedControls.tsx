@@ -344,6 +344,7 @@ const x_axis_time_format: SharedControlConfig<
     option.label.includes(search) || option.value.includes(search),
 };
 
+
 const color_scheme: SharedControlConfig<'ColorSchemeControl'> = {
   type: 'ColorSchemeControl',
   label: t('Color Scheme'),
