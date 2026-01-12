@@ -37,11 +37,11 @@ for arg in "$@"; do
   esac
 done
 
-# Install build tools if required (Red Hat equivalent of build-essential)
+# Install build-essential if required
 if $REQUIRES_BUILD_ESSENTIAL; then
-  echo "Installing build tools for package builds..."
-  microdnf install -y gcc gcc-c++ make kernel-headers glibc-headers glibc-devel libxcrypt-devel binutils libstdc++-devel \
-    && microdnf clean all
+  echo "Installing build-essential for package builds..."
+  apt-get update -qq \
+    && apt-get install -yqq --no-install-recommends build-essential
 fi
 
 # Choose whether to use pip cache
@@ -53,7 +53,12 @@ else
   uv pip install --no-cache-dir "${ARGS[@]}"
 fi
 
-# Note: Build tools are NOT removed here - the Dockerfile will handle cleanup
-# This allows the Dockerfile to control when build dependencies are removed
+# Remove build-essential if it was installed
+if $REQUIRES_BUILD_ESSENTIAL; then
+  echo "Removing build-essential to keep the image lean..."
+  apt-get autoremove -yqq --purge build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+fi
 
 echo "Python packages installed successfully."
