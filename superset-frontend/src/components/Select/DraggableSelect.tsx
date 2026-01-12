@@ -17,12 +17,11 @@
  * under the License.
  */
 import { useState, useEffect, ReactNode } from 'react';
-import { Select, SelectProps } from '@superset-ui/core/components/Select';
+import { Select } from 'antd';
+import type { SelectProps as AntdSelectProps } from 'antd';
 import { DraggableTag } from './DraggableTag';
 
-export type DraggableSelectProps = Omit<SelectProps, 'ref' | 'mode'> & {
-  mode?: 'single' | 'multiple';
-};
+export type DraggableSelectProps = Omit<AntdSelectProps, 'mode' | 'tagRender'>;
 
 interface CustomTagProps {
   label: ReactNode;

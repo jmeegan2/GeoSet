@@ -21,12 +21,12 @@ import { t, SupersetClient, getClientErrorObject } from '@superset-ui/core';
 import ControlHeader from 'src/explore/components/ControlHeader';
 import {
   Select,
-  DraggableSelect,
   type SelectValue,
   type LabeledValue,
   type SelectOptionsType,
   type SelectProps,
 } from '@superset-ui/core/components';
+import { DraggableSelect } from 'src/components/Select/DraggableSelect';
 import withToasts from 'src/components/MessageToasts/withToasts';
 
 type SelectAsyncProps = Omit<SelectProps, 'options' | 'ariaLabel' | 'onChange'>;
@@ -120,16 +120,17 @@ const SelectAsyncControl = ({
 
   if (isDraggable && multi) {
     return (
-      <DraggableSelect
-        allowClear={allowClear}
-        ariaLabel={ariaLabel || t('Select ...')}
-        value={getValue()}
-        header={<ControlHeader {...props} />}
-        mode="multiple"
-        onChange={handleOnChange}
-        options={options}
-        placeholder={placeholder}
-      />
+      <>
+        <ControlHeader {...props} />
+        <DraggableSelect
+          allowClear={allowClear}
+          aria-label={ariaLabel || t('Select ...')}
+          value={getValue()}
+          onChange={handleOnChange}
+          options={options}
+          placeholder={placeholder}
+        />
+      </>
     );
   }
 
