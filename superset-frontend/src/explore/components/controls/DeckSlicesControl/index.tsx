@@ -19,13 +19,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { css, styled, t, useTheme, SupersetClient } from '@superset-ui/core';
 import { useDrag, useDrop } from 'react-dnd';
-import {
-  Icons,
-  Tooltip,
-  Checkbox,
-  Popover,
-} from '@superset-ui/core/components';
 import ControlHeader from 'src/explore/components/ControlHeader';
+import { Icons } from '@superset-ui/core/components/Icons';
+import { Tooltip } from '@superset-ui/core/components/Tooltip';
+import { Checkbox } from '@superset-ui/core/components/Checkbox';
+import { Popover } from '@superset-ui/core/components/Popover';
 import {
   DragContainer,
   OptionControlContainer,

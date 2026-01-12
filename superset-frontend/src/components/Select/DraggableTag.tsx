@@ -17,8 +17,7 @@
  * under the License.
  */
 import { ReactNode } from 'react';
-// eslint-disable-next-line import/no-extraneous-dependencies
-import { useDrag, useDrop, DragSourceMonitor } from 'react-dnd';
+import { DropTargetMonitor, useDrag, useDrop } from 'react-dnd';
 import { Tag } from 'antd';
 import { styled } from '@superset-ui/core';
 import { Icons } from '@superset-ui/core/components/Icons';
@@ -31,18 +30,16 @@ export interface DraggableTagProps {
   onRemove: (value: string) => void;
 }
 
-interface DragItem {
+interface DraggableTagInterface {
   type: string;
   dragIndex: number;
 }
-
-const DRAG_TYPE = 'DRAGGABLE_TAG';
 
 const StyledTag = styled(Tag)`
   & .ant-tag-close-icon {
     display: inline-flex;
     align-items: center;
-    margin-left: ${({ theme }) => theme.sizeUnit}px;
+    margin-left: ${({ theme }) => theme.gridUnit}px;
   }
 
   & .tag-content {
@@ -57,16 +54,16 @@ const CustomCloseIcon = <Icons.CloseOutlined iconSize="xs" />;
 export const DraggableTag = (props: DraggableTagProps) => {
   const { label, value, index, moveTag, onRemove } = props;
 
-  const [{ isDragging }, dragRef] = useDrag({
-    item: { type: DRAG_TYPE, dragIndex: index },
-    collect: (monitor: DragSourceMonitor) => ({
+  const [, dragRef] = useDrag({
+    item: { type: 'TAG', dragIndex: index },
+    collect: monitor => ({
       isDragging: monitor.isDragging(),
     }),
   });
 
   const [, dropRef] = useDrop({
-    accept: DRAG_TYPE,
-    hover: (item: DragItem) => {
+    accept: 'TAG',
+    hover: (item: DraggableTagInterface, monitor: DropTargetMonitor) => {
       if (item.dragIndex !== index) {
         moveTag(item.dragIndex, index);
         // eslint-disable-next-line no-param-reassign
@@ -80,7 +77,7 @@ export const DraggableTag = (props: DraggableTagProps) => {
     <span
       ref={dropRef}
       onMouseDown={e => e.stopPropagation()}
-      style={{ display: 'inline-block', opacity: isDragging ? 0.5 : 1 }}
+      style={{ display: 'inline-block' }}
     >
       <StyledTag
         closable

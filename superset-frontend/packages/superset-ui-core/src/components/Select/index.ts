@@ -18,10 +18,8 @@
  */
 import Select from './Select';
 import AsyncSelect from './AsyncSelect';
-import { DraggableSelect } from './DraggableSelect';
-import { DraggableTag } from './DraggableTag';
 
-export { Select, AsyncSelect, DraggableSelect, DraggableTag };
+export { Select, AsyncSelect };
 export * from './types';
 export * from './styles';
 export * from './constants';

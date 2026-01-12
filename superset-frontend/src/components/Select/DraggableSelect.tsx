@@ -17,13 +17,10 @@
  * under the License.
  */
 import { useState, useEffect, ReactNode } from 'react';
+import { Select, SelectProps } from '@superset-ui/core/components/Select';
 import { DraggableTag } from './DraggableTag';
-import Select from './Select';
-import { SelectProps, SelectValue } from './types';
 
 export type DraggableSelectProps = Omit<SelectProps, 'ref' | 'mode'> & {
-  value?: SelectValue;
-  onChange?: (value: SelectValue, options: any) => void;
   mode?: 'single' | 'multiple';
 };
 
@@ -36,21 +33,17 @@ interface CustomTagProps {
 export const DraggableSelect = (props: DraggableSelectProps) => {
   const { value, onChange, options, ...restProps } = props;
 
-  const [selectedItems, setSelectedItems] = useState<(string | number)[]>([]);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
   // Keep local state in sync if parent updates 'value'
   useEffect(() => {
     if (Array.isArray(value)) {
-      setSelectedItems(value as (string | number)[]);
-    } else if (value !== undefined && value !== null) {
-      setSelectedItems([value as string | number]);
-    } else {
-      setSelectedItems([]);
+      setSelectedItems(value as string[]);
     }
   }, [value]);
 
   // Helper to update both local state and call onChange
-  const updateItems = (newItems: (string | number)[]) => {
+  const updateItems = (newItems: string[]) => {
     setSelectedItems(newItems);
     onChange?.(newItems, []);
   };
@@ -65,7 +58,7 @@ export const DraggableSelect = (props: DraggableSelectProps) => {
   };
 
   // Remove a tag
-  const handleRemove = (valueToRemove: string | number) => {
+  const handleRemove = (valueToRemove: string) => {
     const filteredItems = selectedItems.filter(item => item !== valueToRemove);
     updateItems(filteredItems);
   };
@@ -95,12 +88,10 @@ export const DraggableSelect = (props: DraggableSelectProps) => {
     <Select
       mode="multiple"
       value={selectedItems}
-      onChange={vals => updateItems(vals as (string | number)[])}
+      onChange={vals => updateItems(vals as string[])}
       options={options}
       tagRender={tagRender}
       {...restProps}
     />
   );
 };
-
-export default DraggableSelect;
