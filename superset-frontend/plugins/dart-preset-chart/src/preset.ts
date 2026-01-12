@@ -17,17 +17,18 @@
  * under the License.
  */
 import { Preset } from '@superset-ui/core';
-import DartGeoJsonChartPlugin from './layers/DartGeojson';
-import DartMultiChartPlugin from './DartMulti';
+// Keeping imports as reference but not registering these plugins
+// import DartGeoJsonChartPlugin from './layers/DartGeojson';
+// import DartMultiChartPlugin from './DartMulti';
 
 export default class DeckChartPreset extends Preset {
   constructor() {
     super({
       name: 'dart charts',
-      plugins: [
-        new DartGeoJsonChartPlugin().configure({ key: 'deck_dart_geojson' }),
-        new DartMultiChartPlugin().configure({ key: 'deck_dart_multi' }),
-      ],
+      // Plugins deregistered - keeping code as reference
+      // new DartGeoJsonChartPlugin().configure({ key: 'deck_dart_geojson' }),
+      // new DartMultiChartPlugin().configure({ key: 'deck_dart_multi' }),
+      plugins: [],
     });
   }
 }
