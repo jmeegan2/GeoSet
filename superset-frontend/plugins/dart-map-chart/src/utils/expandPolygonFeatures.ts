@@ -32,15 +32,8 @@ export function expandPolygonFeatures(
   // Check cache first
   const cached = expandedPolygonsCache.get(features);
   if (cached) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[expandPolygonFeatures] Cache HIT for ${features.length} features`,
-    );
     return cached;
   }
-
-  // eslint-disable-next-line no-console
-  console.time(`[expandPolygonFeatures] ${features.length} features`);
 
   // Create result array
   const polygons: ExpandedPolygon[] = [];
@@ -87,13 +80,6 @@ export function expandPolygonFeatures(
 
   // Cache the result
   expandedPolygonsCache.set(features, polygons);
-
-  // eslint-disable-next-line no-console
-  console.timeEnd(`[expandPolygonFeatures] ${features.length} features`);
-  // eslint-disable-next-line no-console
-  console.log(
-    `[expandPolygonFeatures] Expanded to ${polygons.length} polygons`,
-  );
 
   return polygons;
 }
