@@ -51,4 +51,4 @@ jobs:
       - name: Run Basic Tests
         run: |
           pip install pytest
-          pytest superset/tests/unit_tests/ -v --maxfail=5 -q 2>/dev/null || echo "Some tests may require additional setup"
+          pytest tests/unit_tests/ -v --maxfail=5 -q 2>/dev/null || echo "Some tests may require additional setup"
