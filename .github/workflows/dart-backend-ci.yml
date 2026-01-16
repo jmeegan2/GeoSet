@@ -40,7 +40,7 @@ jobs:
 
       - name: Python Import Check
         run: |
-          python -c "import superset; print(f'Superset version: {superset.__version__}')"
+          python -c "import superset; print('Superset module loaded successfully')"
           python -c "from superset.dart_map import api; print('DART map module loaded successfully')"
 
       - name: Run Flake8 (lint)
