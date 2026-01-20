@@ -20,8 +20,7 @@ import { SyntheticEvent } from 'react';
 import domToImage from 'dom-to-image-more';
 import { jsPDF } from 'jspdf';
 import { kebabCase } from 'lodash';
-import { logging, t } from '@superset-ui/core';
-import { addWarningToast } from '../components/MessageToasts/actions';
+import { logging } from '@superset-ui/core';
 
 const generateFileStem = (description: string, date = new Date()) =>
   `${kebabCase(description)}-${date.toISOString().replace(/[: ]/g, '-')}`;
@@ -40,8 +39,7 @@ export default function downloadAsPdf(
       : event.currentTarget.closest(selector);
 
     if (!element) {
-      addWarningToast(t('PDF download failed, please refresh and try again.'));
-      return;
+      throw new Error('Element not found');
     }
 
     const el = element as HTMLElement;
@@ -49,8 +47,7 @@ export default function downloadAsPdf(
     const height = el.offsetHeight || el.scrollHeight;
 
     if (width === 0 || height === 0) {
-      addWarningToast(t('PDF download failed, please refresh and try again.'));
-      return;
+      throw new Error('Element has no dimensions');
     }
 
     try {
@@ -74,12 +71,11 @@ export default function downloadAsPdf(
         unit: 'px',
         format: [width, height],
       });
-
       pdf.addImage(dataUrl, 'JPEG', 0, 0, width, height);
       pdf.save(`${generateFileStem(description)}.pdf`);
     } catch (error) {
       logging.error('Creating PDF failed', error);
-      addWarningToast(t('PDF download failed, please refresh and try again.'));
+      throw error;
     }
   };
 }
