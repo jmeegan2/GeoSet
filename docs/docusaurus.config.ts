@@ -31,10 +31,13 @@ const config: Config = {
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
+  markdown: {
+    mermaid: true,
+  },
   favicon: '/img/favicon.ico',
   organizationName: 'apache',
   projectName: 'superset',
-  themes: ['@saucelabs/theme-github-codeblock'],
+  themes: ['@saucelabs/theme-github-codeblock', '@docusaurus/theme-mermaid'],
   plugins: [
     [
       'docusaurus-plugin-less',
@@ -341,7 +344,7 @@ const config: Config = {
       'data-project-name': 'Apache Superset',
       'data-project-color': '#FFFFFF',
       'data-project-logo':
-        'https://images.seeklogo.com/logo-png/50/2/superset-icon-logo-png_seeklogo-500354.png',
+        'https://superset.apache.org/img/superset-logo-icon-only.png',
       'data-modal-override-open-id': 'ask-ai-input',
       'data-modal-override-open-class': 'search-input',
       'data-modal-disclaimer':

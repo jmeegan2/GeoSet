@@ -57,6 +57,7 @@ import { safeStringify } from 'src/utils/safeStringify';
 import { logEvent } from 'src/logger/actions';
 import { LOG_ACTIONS_CONFIRM_OVERWRITE_DASHBOARD_METADATA } from 'src/logger/LogUtils';
 import { isEqual } from 'lodash';
+import { navigateWithState, navigateTo } from 'src/utils/navigationUtils';
 import { UPDATE_COMPONENTS_PARENTS_LIST } from './dashboardLayout';
 import {
   saveChartConfiguration,
@@ -77,6 +78,11 @@ import {
   getFreshSharedLabels,
   getDynamicLabelsColors,
 } from '../../utils/colorScheme';
+
+export const TOGGLE_NATIVE_FILTERS_BAR = 'TOGGLE_NATIVE_FILTERS_BAR';
+export function toggleNativeFiltersBar(isOpen) {
+  return { type: TOGGLE_NATIVE_FILTERS_BAR, isOpen };
+}
 
 export const SET_UNSAVED_CHANGES = 'SET_UNSAVED_CHANGES';
 export function setUnsavedChanges(hasUnsavedChanges) {
@@ -293,6 +299,7 @@ export function saveDashboardRequest(data, id, saveType) {
       owners,
       roles,
       slug,
+      tags,
     } = data;
 
     const hasId = item => item.id !== undefined;
@@ -314,6 +321,9 @@ export function saveDashboardRequest(data, id, saveType) {
         ? undefined
         : ensureIsArray(roles).map(r => (hasId(r) ? r.id : r)),
       slug: slug || null,
+      tags: !isFeatureEnabled(FeatureFlag.TaggingSystem)
+        ? undefined
+        : ensureIsArray(tags || []).map(r => (hasId(r) ? r.id : r)),
       metadata: {
         ...data.metadata,
         color_namespace: getColorNamespace(data.metadata?.color_namespace),
@@ -362,6 +372,7 @@ export function saveDashboardRequest(data, id, saveType) {
         }),
       );
       dispatch(saveDashboardFinished());
+      navigateTo(`/superset/dashboard/${response.json.result.id}/`);
       dispatch(addSuccessToast(t('This dashboard was saved successfully.')));
       return response;
     };
@@ -402,11 +413,9 @@ export function saveDashboardRequest(data, id, saveType) {
       }
       dispatch(saveDashboardFinished());
       // redirect to the new slug or id
-      window.history.pushState(
-        { event: 'dashboard_properties_changed' },
-        '',
-        `/superset/dashboard/${slug || id}/`,
-      );
+      navigateWithState(`/superset/dashboard/${slug || id}/`, {
+        event: 'dashboard_properties_changed',
+      });
 
       dispatch(addSuccessToast(t('This dashboard was saved successfully.')));
       dispatch(setOverrideConfirm(undefined));
@@ -446,6 +455,7 @@ export function saveDashboardRequest(data, id, saveType) {
               slug: cleanedData.slug,
               owners: cleanedData.owners,
               roles: cleanedData.roles,
+              tags: cleanedData.tags || [],
               json_metadata: safeStringify({
                 ...(cleanedData?.metadata || {}),
                 default_filters: safeStringify(serializedFilters),
@@ -658,8 +668,61 @@ export function setDirectPathToChild(path) {
 }
 
 export const SET_ACTIVE_TAB = 'SET_ACTIVE_TAB';
+
+function findTabsToRestore(tabId, prevTabId, dashboardState, dashboardLayout) {
+  const { activeTabs: prevActiveTabs, inactiveTabs: prevInactiveTabs } =
+    dashboardState;
+  const { present: currentLayout } = dashboardLayout;
+  const restoredTabs = [];
+  const queue = [tabId];
+  const visited = new Set();
+  while (queue.length > 0) {
+    const seek = queue.shift();
+    if (!visited.has(seek)) {
+      visited.add(seek);
+      const found =
+        prevInactiveTabs?.filter(inactiveTabId =>
+          currentLayout[inactiveTabId]?.parents
+            .filter(id => id.startsWith('TAB-'))
+            .slice(-1)
+            .includes(seek),
+        ) ?? [];
+      restoredTabs.push(...found);
+      queue.push(...found);
+    }
+  }
+  const activeTabs = restoredTabs ? [tabId].concat(restoredTabs) : [tabId];
+  const tabChanged = Boolean(prevTabId) && tabId !== prevTabId;
+  const inactiveTabs = tabChanged
+    ? prevActiveTabs.filter(
+        activeTabId =>
+          activeTabId !== prevTabId &&
+          currentLayout[activeTabId]?.parents.includes(prevTabId),
+      )
+    : [];
+  return {
+    activeTabs,
+    inactiveTabs,
+  };
+}
+
 export function setActiveTab(tabId, prevTabId) {
-  return { type: SET_ACTIVE_TAB, tabId, prevTabId };
+  return (dispatch, getState) => {
+    const { dashboardLayout, dashboardState } = getState();
+    const { activeTabs, inactiveTabs } = findTabsToRestore(
+      tabId,
+      prevTabId,
+      dashboardState,
+      dashboardLayout,
+    );
+
+    return dispatch({
+      type: SET_ACTIVE_TAB,
+      activeTabs,
+      prevTabId,
+      inactiveTabs,
+    });
+  };
 }
 
 // Even though SET_ACTIVE_TABS is not being called from Superset's codebase,

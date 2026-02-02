@@ -1,3 +1,8 @@
 docker/**/*.sh text eol=lf
 *.svg binary
 *.ipynb binary
+*.geojson binary
+
+# Keep local versions of these files when merging from upstream
+Dockerfile merge=ours
+README.md merge=ours

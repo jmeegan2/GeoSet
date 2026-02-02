@@ -19,11 +19,15 @@
 import { useEffect, useState } from 'react';
 import { t, SupersetClient, getClientErrorObject } from '@superset-ui/core';
 import ControlHeader from 'src/explore/components/ControlHeader';
-import { SelectOptionsType, SelectProps } from 'src/components/Select/types';
-// eslint-disable-next-line no-restricted-imports
-import { SelectValue, LabeledValue } from 'antd/lib/select'; // TODO: Remove antd
+import {
+  Select,
+  type SelectValue,
+  type LabeledValue,
+  type SelectOptionsType,
+  type SelectProps,
+} from '@superset-ui/core/components';
+import { DraggableSelect } from 'src/components/Select/DraggableSelect';
 import withToasts from 'src/components/MessageToasts/withToasts';
-import { Select, DraggableSelect } from 'src/components';
 
 type SelectAsyncProps = Omit<SelectProps, 'options' | 'ariaLabel' | 'onChange'>;
 
@@ -114,20 +118,22 @@ const SelectAsyncControl = ({
     }
   }, [addDangerToast, dataEndpoint, mutator, value, loaded]);
 
-  if (isDraggable) {
+  if (isDraggable && multi) {
     return (
-      <DraggableSelect
-        allowClear={allowClear}
-        ariaLabel={ariaLabel || t('Select ...')}
-        value={getValue()}
-        header={<ControlHeader {...props} />}
-        mode={multi ? 'multiple' : 'single'}
-        onChange={handleOnChange}
-        options={options}
-        placeholder={placeholder}
-      />
+      <>
+        <ControlHeader {...props} />
+        <DraggableSelect
+          allowClear={allowClear}
+          aria-label={ariaLabel || t('Select ...')}
+          value={getValue()}
+          onChange={handleOnChange}
+          options={options}
+          placeholder={placeholder}
+        />
+      </>
     );
   }
+
   return (
     <Select
       allowClear={allowClear}

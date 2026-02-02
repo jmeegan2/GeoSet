@@ -1,11 +1,7 @@
 variables:
-   # update the sprint number at the start of each sprint
-  SPRINT_NUMBER: "2"
-  # increment with each merge to main and reset to 0 at the start of each sprint
-  VALUE_INCREMENT: "1"
-
   CODE_DIRECTORY: ./
-  DOCKER_FILE: Dockerfile
+  DAST_SCAN_ENABLED: "true"
+  MAIN_BRANCH: "main"
 
 default:
   tags:
@@ -13,31 +9,73 @@ default:
 
 workflow:
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
+    - when: always
       variables:
-        VERSION_TAG: "$SPRINT_NUMBER.$VALUE_INCREMENT"
-        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT"
-    - when: always # Default tag and image
-      variables:
-        VERSION_TAG: "$CI_PIPELINE_ID-dev"
         FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID"
-
+        
 stages:
   - build
-  - security-test
-  - security-scan
-  - testing-jobs
 
-Build Image and Push to Registry:
+Build Dev Image and Push to Registry:
   image:
     name: quay.io/buildah/stable:v1.35.3
   stage: build
-  needs: []
+  needs:
+    - job: Build Base Image and Push to Registry
+      optional: true
   script:
     - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - export STORAGE_DRIVER=vfs
-    - sed -i "s/0.0.0-dev/$VERSION_TAG/" ./superset-frontend/package.json ./superset-frontend/package-lock.json
-    - buildah build -t $FULL_IMAGE_NAME --platform linux/amd64 --target dev .
+    - buildah build --target production -t $FULL_IMAGE_NAME .
     - buildah push $FULL_IMAGE_NAME
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+
+Build Release Image and Push to Registry:
+  image:
+    name: quay.io/buildah/stable:v1.35.3
+  stage: build
+  needs:
+    - job: Build Base Image and Push to Registry
+      optional: true
+  script:
+    - set -x
+    - YEAR=$(date +%Y)
+    - MONTH_ABBR=$(date +%b)
+    - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - export STORAGE_DRIVER=vfs
+    # Query registry for existing tags and determine version increment
+    - |
+      set -x
+      echo "Querying registry via GitLab API"
+      # Use GitLab API to get registry repository ID first
+      REPO_INFO=$(curl -s --header "JOB-TOKEN: $CI_JOB_TOKEN" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories")
+      echo "Repository info: $REPO_INFO"
+      REPO_ID=$(echo "$REPO_INFO" | sed -n 's/.*"id":\([0-9]*\).*/\1/p' | head -1)
+      echo "Repository ID: $REPO_ID"
+      if [ -n "$REPO_ID" ]; then
+        TAGS=$(curl -s --header "JOB-TOKEN: $CI_JOB_TOKEN" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories/$REPO_ID/tags")
+      else
+        TAGS="[]"
+      fi
+      echo "Tags found: $TAGS"
+      # Split tags onto separate lines, then extract increment numbers for current month/year
+      LATEST_INCREMENT=$(echo "$TAGS" | tr ',' '\n' | sed -n "s/.*\"name\":\"$MONTH_ABBR$YEAR-v\([0-9]*\)\".*/\1/p" | sort -n | tail -1)
+      echo "Latest increment for $MONTH_ABBR$YEAR: $LATEST_INCREMENT"
+      if [ -z "$LATEST_INCREMENT" ]; then
+        INCREMENT=1
+      else
+        INCREMENT=$((LATEST_INCREMENT + 1))
+      fi
+      echo "Using increment: $INCREMENT"
+    - VERSION_TAG="$MONTH_ABBR$YEAR-v$INCREMENT"
+    - FULL_IMAGE_NAME="$CI_REGISTRY/$CI_PROJECT_PATH:$VERSION_TAG"
+    - echo "Building release image with tag $VERSION_TAG"
+    - buildah build --target production -t $FULL_IMAGE_NAME .
+    - buildah push $FULL_IMAGE_NAME
+  rules:
+    - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
+

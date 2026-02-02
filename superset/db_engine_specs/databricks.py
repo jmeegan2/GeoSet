@@ -17,13 +17,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, TYPE_CHECKING, TypedDict, Union
+from typing import Any, Callable, TYPE_CHECKING, TypedDict, Union
 
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_babel import gettext as __
 from marshmallow import fields, Schema
 from marshmallow.validate import Range
+from sqlalchemy import types
+from sqlalchemy.engine.default import DefaultDialect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.url import URL
 
@@ -38,6 +40,67 @@ from superset.utils.network import is_hostname_valid, is_port_open
 
 if TYPE_CHECKING:
     from superset.models.core import Database
+
+
+try:
+    from databricks.sql.utils import ParamEscaper
+except ImportError:
+
+    class ParamEscaper:  # type: ignore
+        """Dummy class."""
+
+
+class DatabricksStringType(types.TypeDecorator):
+    impl = types.String
+    cache_ok = True
+    pe = ParamEscaper()
+
+    def process_literal_param(self, value: Any, dialect: Any) -> str:
+        return self.pe.escape_string(value)
+
+    def literal_processor(self, dialect: Any) -> Callable[[Any], str]:
+        def process(value: Any) -> str:
+            _step1 = self.process_literal_param(value, dialect="databricks")
+            if dialect.identifier_preparer._double_percents:
+                _step2 = _step1.replace("%", "%%")
+            else:
+                _step2 = _step1
+
+            return "%s" % _step2
+
+        return process
+
+
+def monkeypatch_dialect() -> None:
+    """
+    Monkeypatch dialect to correctly escape single quotes for Databricks.
+
+    The Databricks SQLAlchemy dialect (<3.0) incorrectly escapes single quotes by
+    doubling them ('O''Hara') instead of using backslash escaping ('O\'Hara'). The
+    fixed version requires SQLAlchemy>=2.0, which is not yet compatible with Superset.
+
+    Since the DatabricksDialect.colspecs points to the base class (HiveDialect.colspecs)
+    we can't patch it without affecting other Hive-based dialects. The solution is to
+    introduce a dialect-aware string type so that the change applies only to Databricks.
+    """
+    try:
+        from pyhive.sqlalchemy_hive import HiveDialect
+
+        class ContextAwareStringType(types.TypeDecorator):
+            impl = types.String
+            cache_ok = True
+
+            def literal_processor(
+                self, dialect: DefaultDialect
+            ) -> Callable[[Any], str]:
+                if dialect.__class__.__name__ == "DatabricksDialect":
+                    return DatabricksStringType().literal_processor(dialect)
+                return super().literal_processor(dialect)
+
+        HiveDialect.colspecs[types.String] = ContextAwareStringType
+
+    except ImportError:
+        pass
 
 
 class DatabricksBaseSchema(Schema):
@@ -373,7 +436,10 @@ class DatabricksNativeEngineSpec(DatabricksDynamicBaseEngineSpec):
         "extra",
     }
 
-    supports_dynamic_schema = supports_catalog = supports_dynamic_catalog = True
+    supports_dynamic_schema = True
+    supports_catalog = True
+    supports_dynamic_catalog = True
+    supports_cross_catalog_queries = True
 
     @classmethod
     def build_sqlalchemy_uri(  # type: ignore
@@ -433,12 +499,11 @@ class DatabricksNativeEngineSpec(DatabricksDynamicBaseEngineSpec):
         return spec.to_dict()["components"]["schemas"][cls.__name__]
 
     @classmethod
-    def get_default_catalog(
-        cls,
-        database: Database,
-    ) -> str | None:
+    def get_default_catalog(cls, database: Database) -> str:
         """
         Return the default catalog.
+
+        It's optionally specified in `connect_args.catalog`. If not:
 
         The default behavior for Databricks is confusing. When Unity Catalog is not
         enabled we have (the DB engine spec hasn't been tested with it enabled):
@@ -451,6 +516,10 @@ class DatabricksNativeEngineSpec(DatabricksDynamicBaseEngineSpec):
         To handle permissions correctly we use the result of `SHOW CATALOGS` when a
         single catalog is returned.
         """
+        connect_args = cls.get_extra_params(database)["engine_params"]["connect_args"]
+        if default_catalog := connect_args.get("catalog"):
+            return default_catalog
+
         with database.get_sqla_engine() as engine:
             catalogs = {catalog for (catalog,) in engine.execute("SHOW CATALOGS")}
             if len(catalogs) == 1:
@@ -589,3 +658,7 @@ class DatabricksPythonConnectorEngineSpec(DatabricksDynamicBaseEngineSpec):
             uri = uri.update_query_dict({"schema": schema})
 
         return uri, connect_args
+
+
+# TODO: remove once we've upgraded to SQLAlchemy>=2.0 and databricks-sql-python>=3.x
+monkeypatch_dialect()
