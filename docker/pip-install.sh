@@ -37,11 +37,29 @@ for arg in "$@"; do
   esac
 done
 
+# Detect package manager (microdnf for ubi-minimal, dnf for full RHEL/UBI, apt for Debian)
+if command -v microdnf &> /dev/null; then
+  PKG_MANAGER="microdnf"
+elif command -v dnf &> /dev/null; then
+  PKG_MANAGER="dnf"
+elif command -v apt-get &> /dev/null; then
+  PKG_MANAGER="apt"
+else
+  echo "No supported package manager found (microdnf, dnf or apt-get)"
+  exit 1
+fi
+
 # Install build-essential if required
 if $REQUIRES_BUILD_ESSENTIAL; then
-  echo "Installing build-essential for package builds..."
-  apt-get update -qq \
-    && apt-get install -yqq --no-install-recommends build-essential
+  echo "Installing build tools for package builds..."
+  if [[ "$PKG_MANAGER" == "microdnf" ]]; then
+    microdnf install -y gcc gcc-c++ make
+  elif [[ "$PKG_MANAGER" == "dnf" ]]; then
+    dnf install -y --nodocs gcc gcc-c++ make
+  else
+    apt-get update -qq \
+      && apt-get install -yqq --no-install-recommends build-essential
+  fi
 fi
 
 # Choose whether to use pip cache
@@ -53,12 +71,22 @@ else
   uv pip install --no-cache-dir "${ARGS[@]}"
 fi
 
-# Remove build-essential if it was installed
+# Remove build tools if they were installed
 if $REQUIRES_BUILD_ESSENTIAL; then
-  echo "Removing build-essential to keep the image lean..."
-  apt-get autoremove -yqq --purge build-essential \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+  echo "Removing build tools to keep the image lean..."
+  if [[ "$PKG_MANAGER" == "microdnf" ]]; then
+    microdnf remove -y gcc gcc-c++ make \
+      && microdnf clean all \
+      && rm -rf /var/cache/yum/*
+  elif [[ "$PKG_MANAGER" == "dnf" ]]; then
+    dnf remove -y gcc gcc-c++ make \
+      && dnf clean all \
+      && rm -rf /var/cache/dnf/*
+  else
+    apt-get autoremove -yqq --purge build-essential \
+      && apt-get clean \
+      && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+  fi
 fi
 
 echo "Python packages installed successfully."

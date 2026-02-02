@@ -24,7 +24,7 @@ import {
   D3_TIME_FORMAT_DOCS,
   D3_TIME_FORMAT_OPTIONS,
 } from '@superset-ui/chart-controls';
-import { Icons } from 'src/components/Icons';
+import { Icons } from '@superset-ui/core/components/Icons';
 import { ColumnConfigFormLayout } from './types';
 
 export type SharedColumnConfigProp =
@@ -37,10 +37,11 @@ export type SharedColumnConfigProp =
   | 'd3TimeFormat'
   | 'horizontalAlign'
   | 'truncateLongCells'
-  | 'hideColumn'
   | 'showCellBars'
-  | 'currencyFormat'
-  | 'visible';
+  | 'visible'
+  | 'customColumnName'
+  | 'displayTypeIcon'
+  | 'currencyFormat';
 
 const d3NumberFormat: ControlFormItemSpec<'Select'> = {
   allowNewOptions: true,
@@ -138,20 +139,25 @@ const colorPositiveNegative: ControlFormItemSpec<'Checkbox'> = {
   debounceDelay: 200,
 };
 
+const customColumnName: ControlFormItemSpec<'Input'> = {
+  controlType: 'Input',
+  label: t('Display column name'),
+  description: t('Custom column name (leave blank for default)'),
+  debounceDelay: 200,
+};
+
+const displayTypeIcon: ControlFormItemSpec<'Checkbox'> = {
+  controlType: 'Checkbox',
+  label: t('Display type icon'),
+  description: t('Whether to display the type icon (#, Δ, %)'),
+  defaultValue: true,
+  debounceDelay: 200,
+};
+
 const truncateLongCells: ControlFormItemSpec<'Checkbox'> = {
   controlType: 'Checkbox',
   label: t('Truncate Cells'),
   description: t('Truncate long cells to the "min width" set above'),
-  defaultValue: false,
-  debounceDelay: 400,
-};
-
-const hideColumn: ControlFormItemSpec<'Checkbox'> = {
-  controlType: 'Checkbox',
-  label: t('Hide Column'),
-  description: t(
-    'Ability to not render columns, useful if you just want the attribute for metadata.'
-  ),
   defaultValue: false,
   debounceDelay: 400,
 };
@@ -167,7 +173,7 @@ const currencyFormat: ControlFormItemSpec<'CurrencyControl'> = {
 
 const visible: ControlFormItemSpec<'Checkbox'> = {
   controlType: 'Checkbox',
-  label: t('Display in chart'),
+  label: t('Display column in the chart'),
   description: t('Whether to display in the chart'),
   defaultValue: true,
   debounceDelay: 200,
@@ -188,8 +194,9 @@ export const SHARED_COLUMN_CONFIG_PROPS = {
   d3TimeFormat,
   fractionDigits,
   columnWidth,
+  customColumnName,
+  displayTypeIcon,
   truncateLongCells,
-  hideColumn,
   horizontalAlign,
   showCellBars,
   alignPositiveNegative,
@@ -205,11 +212,10 @@ export const DEFAULT_CONFIG_FORM_LAYOUT: ColumnConfigFormLayout = {
       { name: 'horizontalAlign', override: { defaultValue: 'left' } },
     ],
     ['truncateLongCells'],
-    ['hideColumn'],
   ],
   [GenericDataType.Numeric]: [
     {
-      tab: t('Display'),
+      tab: t('Column Settings'),
       children: [
         [
           'columnWidth',
@@ -218,7 +224,6 @@ export const DEFAULT_CONFIG_FORM_LAYOUT: ColumnConfigFormLayout = {
         ['showCellBars'],
         ['alignPositiveNegative'],
         ['colorPositiveNegative'],
-        ['hideColumn'],
       ],
     },
     {
@@ -236,13 +241,11 @@ export const DEFAULT_CONFIG_FORM_LAYOUT: ColumnConfigFormLayout = {
       { name: 'horizontalAlign', override: { defaultValue: 'left' } },
     ],
     ['d3TimeFormat'],
-    ['hideColumn'],
   ],
   [GenericDataType.Boolean]: [
     [
       'columnWidth',
       { name: 'horizontalAlign', override: { defaultValue: 'left' } },
     ],
-    ['hideColumn'],
   ],
 };

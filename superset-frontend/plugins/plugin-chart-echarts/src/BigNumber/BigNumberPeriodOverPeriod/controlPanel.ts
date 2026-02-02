@@ -23,7 +23,15 @@ import {
   sharedControls,
   sections,
 } from '@superset-ui/chart-controls';
-import { headerFontSize, subheaderFontSize } from '../sharedControls';
+import { noop } from 'lodash';
+import {
+  headerFontSize,
+  subheaderFontSize,
+  subtitleControl,
+  subtitleFontSize,
+  showMetricNameControl,
+  metricNameFontSizeWithVisibility,
+} from '../sharedControls';
 import { ColorSchemeEnum } from './types';
 
 const config: ControlPanelConfig = {
@@ -63,6 +71,10 @@ const config: ControlPanelConfig = {
             config: { ...headerFontSize.config, default: 0.2 },
           },
         ],
+        [subtitleControl],
+        [subtitleFontSize],
+        [showMetricNameControl],
+        [metricNameFontSizeWithVisibility],
         [
           {
             ...subheaderFontSize,
@@ -120,7 +132,11 @@ const config: ControlPanelConfig = {
                 [GenericDataType.Numeric]: [
                   {
                     tab: t('General'),
-                    children: [['visible']],
+                    children: [
+                      ['customColumnName'],
+                      ['displayTypeIcon'],
+                      ['visible'],
+                    ],
                   },
                 ],
               },
@@ -128,6 +144,7 @@ const config: ControlPanelConfig = {
                 return true;
               },
               mapStateToProps(explore, _, chart) {
+                noop(explore, _, chart);
                 return {
                   columnsPropsObject: {
                     colnames: ['Previous value', 'Delta', 'Percent change'],

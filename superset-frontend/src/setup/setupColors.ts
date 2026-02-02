@@ -24,7 +24,6 @@ import {
   getSequentialSchemeRegistry,
   SequentialScheme,
   SequentialSchemeConfig,
-  CategoricalAcf,
   CategoricalAirbnb,
   CategoricalD3,
   CategoricalEcharts,
@@ -73,7 +72,6 @@ export default function setupColors(
     // @ts-ignore
     getCategoricalSchemeRegistry(),
     [
-      ...CategoricalAcf,
       ...CategoricalAirbnb,
       ...CategoricalD3,
       ...CategoricalEcharts,

@@ -17,16 +17,6 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-# ACF DART
-
-![ACF Logo](./assets/Administration-of-Children-and-Families.png)
-
-The Administration for Children and Families (ACF) utilizes the Data Analytics for Response and Triage (DART) tool to gain visibility into service delivery and grantee operations, providing ACF and its grantees with reliable, actionable data to meet the evolving needs of disaster response and recovery.
-
-This visualization tool is based on [Apache Superset](https://superset.apache.org/) with custom geospatial visualization functionality added. Refer to the [DART README](README-DART.md) to learn more about these customizations.
-
-Information and source code for the data backend can be found [here](https://gitlab.management.acf.gov/systems/dart/dart-backend).
-
 # Superset
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/license/apache-2-0)
@@ -113,7 +103,7 @@ Here are some of the major database solutions that are supported:
 
 <p align="center">
   <img src="https://superset.apache.org/img/databases/redshift.png" alt="redshift" border="0" width="200"/>
-  <img src="https://superset.apache.org/img/databases/google-biquery.png" alt="google-biquery" border="0" width="200"/>
+  <img src="https://superset.apache.org/img/databases/google-biquery.png" alt="google-bigquery" border="0" width="200"/>
   <img src="https://superset.apache.org/img/databases/snowflake.png" alt="snowflake" border="0" width="200"/>
   <img src="https://superset.apache.org/img/databases/trino.png" alt="trino" border="0" width="150" />
   <img src="https://superset.apache.org/img/databases/presto.png" alt="presto" border="0" width="200"/>
@@ -121,7 +111,6 @@ Here are some of the major database solutions that are supported:
   <img src="https://superset.apache.org/img/databases/druid.png" alt="druid" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/firebolt.png" alt="firebolt" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/timescale.png" alt="timescale" border="0" width="200" />
-  <img src="https://superset.apache.org/img/databases/rockset.png" alt="rockset" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/postgresql.png" alt="postgresql" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/mysql.png" alt="mysql" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/mssql-server.png" alt="mssql-server" border="0" width="200" />
@@ -146,7 +135,7 @@ Here are some of the major database solutions that are supported:
   <img src="https://superset.apache.org/img/databases/starrocks.png" alt="starrocks" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/doris.png" alt="doris" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/oceanbase.svg" alt="oceanbase" border="0" width="220" />
-  <img src="https://superset.apache.org/img/databases/sap-hana.png" alt="oceanbase" border="0" width="220" />
+  <img src="https://superset.apache.org/img/databases/sap-hana.png" alt="sap-hana" border="0" width="220" />
   <img src="https://superset.apache.org/img/databases/denodo.png" alt="denodo" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/ydb.svg" alt="ydb" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/tdengine.png" alt="TDengine" border="0" width="200" />

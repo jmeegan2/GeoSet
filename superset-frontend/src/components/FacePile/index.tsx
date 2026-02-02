@@ -16,52 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import type Owner from 'src/types/Owner';
+
 import {
   getCategoricalSchemeRegistry,
-  getSupersetTheme,
   isFeatureEnabled,
   FeatureFlag,
 } from '@superset-ui/core';
 import getOwnerName from 'src/utils/getOwnerName';
-import { Tooltip } from 'src/components/Tooltip';
-import { Avatar, AvatarGroup } from 'src/components/Avatar';
-import { modifyToContrast } from 'src/utils/accessibility';
+import { Avatar, AvatarGroup, Tooltip } from '@superset-ui/core/components';
+import { ensureAppRoot } from 'src/utils/pathUtils';
 import { getRandomColor } from './utils';
-
-interface FacePileProps {
-  users: Owner[];
-  maxCount?: number;
-}
+import type { FacePileProps } from './types';
 
 const colorList = getCategoricalSchemeRegistry().get()?.colors ?? [];
 
-const theme = getSupersetTheme();
-
-export default function FacePile({ users, maxCount = 4 }: FacePileProps) {
+export function FacePile({ users, maxCount = 4 }: FacePileProps) {
   return (
-    <AvatarGroup
-      max={{
-        count: maxCount,
-        style: isFeatureEnabled(FeatureFlag.AccessibilitySection508)
-          ? {
-              backgroundColor: theme.colors.text.help,
-              color: theme.colors.grayscale.light5,
-            }
-          : undefined,
-      }}
-    >
+    <AvatarGroup max={{ count: maxCount }}>
       {users.map(user => {
         const { first_name, last_name, id } = user;
         const name = getOwnerName(user);
         const uniqueKey = `${id}-${first_name}-${last_name}`;
-        const baseColor = getRandomColor(uniqueKey, colorList);
-
-        const color = isFeatureEnabled(FeatureFlag.AccessibilitySection508)
-          ? modifyToContrast(baseColor)
-          : baseColor;
+        const color = getRandomColor(uniqueKey, colorList);
         const avatarUrl = isFeatureEnabled(FeatureFlag.SlackEnableAvatars)
-          ? `/api/v1/user/${id}/avatar.png`
+          ? ensureAppRoot(`/api/v1/user/${id}/avatar.png`)
           : undefined;
         return (
           <Tooltip key={name} title={name} placement="top">
@@ -82,3 +60,5 @@ export default function FacePile({ users, maxCount = 4 }: FacePileProps) {
     </AvatarGroup>
   );
 }
+
+export type { FacePileProps };

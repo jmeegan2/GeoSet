@@ -23,7 +23,6 @@ Superset can render.
 
 from __future__ import annotations
 
-import ast
 import copy
 import dataclasses
 import logging
@@ -36,17 +35,16 @@ from typing import Any, cast, Optional, TYPE_CHECKING
 import geohash
 import numpy as np
 import pandas as pd
-import plpygis
 import polyline
 from dateutil import relativedelta as rdelta
 from deprecation import deprecated
-from flask import request
+from flask import current_app, request
 from flask_babel import lazy_gettext as _
 from geopy.point import Point
 from pandas.tseries.frequencies import to_offset
 
-from superset import app
 from superset.common.db_query_status import QueryStatus
+from superset.constants import CACHE_DISABLED_TIMEOUT
 from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.exceptions import (
     CacheLoadError,
@@ -57,7 +55,7 @@ from superset.exceptions import (
 )
 from superset.extensions import cache_manager, security_manager
 from superset.models.helpers import QueryResult
-from superset.sql_parse import sanitize_clause
+from superset.sql.parse import sanitize_clause
 from superset.superset_typing import (
     Column,
     Metric,
@@ -85,10 +83,6 @@ from superset.utils.hashing import md5_sha_from_str
 if TYPE_CHECKING:
     from superset.connectors.sqla.models import BaseDatasource
 
-config = app.config
-stats_logger = config["STATS_LOGGER"]
-relative_start = config["DEFAULT_RELATIVE_START_TIME"]
-relative_end = config["DEFAULT_RELATIVE_END_TIME"]
 logger = logging.getLogger(__name__)
 
 METRIC_KEYS = [
@@ -101,14 +95,6 @@ METRIC_KEYS = [
     "y",
     "size",
 ]
-
-
-def is_dictionary_string(string):
-    try:
-        result = ast.literal_eval(string)
-        return isinstance(result, dict)
-    except (ValueError, SyntaxError):
-        return False
 
 
 class BaseViz:  # pylint: disable=too-many-public-methods
@@ -257,7 +243,7 @@ class BaseViz:  # pylint: disable=too-many-public-methods
                 "groupby": [],
                 "metrics": [],
                 "orderby": [],
-                "row_limit": config["SAMPLES_ROW_LIMIT"],
+                "row_limit": current_app.config["SAMPLES_ROW_LIMIT"],
                 "columns": [o.column_name for o in self.datasource.columns],
                 "from_dttm": None,
                 "to_dttm": None,
@@ -334,7 +320,8 @@ class BaseViz:  # pylint: disable=too-many-public-methods
     def process_query_filters(self) -> None:
         utils.convert_legacy_filters_into_adhoc(self.form_data)
         merge_extra_filters(self.form_data)
-        utils.split_adhoc_filters_into_base_filters(self.form_data)
+        engine = self.datasource.database.db_engine_spec.engine
+        utils.split_adhoc_filters_into_base_filters(self.form_data, engine)
 
     @staticmethod
     @deprecated(deprecated_in="3.0")
@@ -369,7 +356,9 @@ class BaseViz:  # pylint: disable=too-many-public-methods
         timeseries_limit_metric = self.form_data.get("timeseries_limit_metric")
 
         # apply row limit to query
-        row_limit = int(self.form_data.get("row_limit") or config["ROW_LIMIT"])
+        row_limit = int(
+            self.form_data.get("row_limit") or current_app.config["ROW_LIMIT"]
+        )
         row_limit = apply_max_row_limit(row_limit)
 
         # default order direction
@@ -377,8 +366,8 @@ class BaseViz:  # pylint: disable=too-many-public-methods
 
         try:
             since, until = get_since_until(
-                relative_start=relative_start,
-                relative_end=relative_end,
+                relative_start=current_app.config["DEFAULT_RELATIVE_START_TIME"],
+                relative_end=current_app.config["DEFAULT_RELATIVE_END_TIME"],
                 time_range=self.form_data.get("time_range"),
                 since=self.form_data.get("since"),
                 until=self.form_data.get("until"),
@@ -402,7 +391,8 @@ class BaseViz:  # pylint: disable=too-many-public-methods
         for param in ("where", "having"):
             clause = self.form_data.get(param)
             if clause:
-                sanitized_clause = sanitize_clause(clause)
+                engine = self.datasource.database.db_engine_spec.engine
+                sanitized_clause = sanitize_clause(clause, engine)
                 if sanitized_clause != clause:
                     self.form_data[param] = sanitized_clause
 
@@ -441,9 +431,12 @@ class BaseViz:  # pylint: disable=too-many-public-methods
             and self.datasource.database.cache_timeout
         ) is not None:
             return self.datasource.database.cache_timeout
-        if config["DATA_CACHE_CONFIG"].get("CACHE_DEFAULT_TIMEOUT") is not None:
-            return config["DATA_CACHE_CONFIG"]["CACHE_DEFAULT_TIMEOUT"]
-        return config["CACHE_DEFAULT_TIMEOUT"]
+        if (
+            current_app.config["DATA_CACHE_CONFIG"].get("CACHE_DEFAULT_TIMEOUT")
+            is not None
+        ):
+            return current_app.config["DATA_CACHE_CONFIG"]["CACHE_DEFAULT_TIMEOUT"]
+        return current_app.config["CACHE_DEFAULT_TIMEOUT"]
 
     @deprecated(deprecated_in="3.0")
     def get_json(self) -> str:
@@ -535,11 +528,11 @@ class BaseViz:  # pylint: disable=too-many-public-methods
         stacktrace = None
         df = None
         cache_timeout = self.cache_timeout
-        force = self.force or cache_timeout == -1
+        force = self.force or cache_timeout == CACHE_DISABLED_TIMEOUT
         if cache_key and cache_manager.data_cache and not force:
             cache_value = cache_manager.data_cache.get(cache_key)
             if cache_value:
-                stats_logger.incr("loading_from_cache")
+                current_app.config["STATS_LOGGER"].incr("loading_from_cache")
                 try:
                     df = cache_value["df"]
                     self.query = cache_value["query"]
@@ -551,7 +544,7 @@ class BaseViz:  # pylint: disable=too-many-public-methods
                     )
                     self.status = QueryStatus.SUCCESS
                     is_loaded = True
-                    stats_logger.incr("loaded_from_cache")
+                    current_app.config["STATS_LOGGER"].incr("loaded_from_cache")
                 except Exception as ex:  # pylint: disable=broad-except
                     logger.exception(ex)
                     logger.error(
@@ -589,9 +582,11 @@ class BaseViz:  # pylint: disable=too-many-public-methods
                     )
                 df = self.get_df(query_obj)
                 if self.status != QueryStatus.FAILED:
-                    stats_logger.incr("loaded_from_source")
+                    current_app.config["STATS_LOGGER"].incr("loaded_from_source")
                     if not self.force:
-                        stats_logger.incr("loaded_from_source_without_force")
+                        current_app.config["STATS_LOGGER"].incr(
+                            "loaded_from_source_without_force"
+                        )
                     is_loaded = True
             except QueryObjectValidationError as ex:
                 error = dataclasses.asdict(
@@ -686,7 +681,9 @@ class BaseViz:  # pylint: disable=too-many-public-methods
     def get_csv(self) -> str | None:
         df = self.get_df_payload()["df"]  # leverage caching logic
         include_index = not isinstance(df.index, pd.RangeIndex)
-        return csv.df_to_escaped_csv(df, index=include_index, **config["CSV_EXPORT"])
+        return csv.df_to_escaped_csv(
+            df, index=include_index, **current_app.config["CSV_EXPORT"]
+        )
 
     @deprecated(deprecated_in="3.0")
     def get_data(self, df: pd.DataFrame) -> VizData:
@@ -781,8 +778,8 @@ class CalHeatmapViz(BaseViz):
 
         try:
             start, end = get_since_until(
-                relative_start=relative_start,
-                relative_end=relative_end,
+                relative_start=current_app.config["DEFAULT_RELATIVE_START_TIME"],
+                relative_end=current_app.config["DEFAULT_RELATIVE_END_TIME"],
                 time_range=form_data.get("time_range"),
                 since=form_data.get("since"),
                 until=form_data.get("until"),
@@ -1316,6 +1313,7 @@ class WorldMapViz(BaseViz):
                         self.form_data["country_fieldtype"], row["country"]
                     )
             if country:
+                row["code"] = country[self.form_data["country_fieldtype"]]
                 row["country"] = country["cca3"]
                 row["latitude"] = country["lat"]
                 row["longitude"] = country["lng"]
@@ -1507,7 +1505,7 @@ class MapboxViz(BaseViz):
         return {
             "geoJSON": geo_json,
             "hasCustomMetric": has_custom_metric,
-            "mapboxApiKey": config["MAPBOX_API_KEY"],
+            "mapboxApiKey": current_app.config["MAPBOX_API_KEY"],
             "mapStyle": self.form_data.get("mapbox_style"),
             "aggregatorName": self.form_data.get("pandas_aggfunc"),
             "clusteringRadius": self.form_data.get("clustering_radius"),
@@ -1518,35 +1516,6 @@ class MapboxViz(BaseViz):
             "tooltip": self.form_data.get("rich_tooltip"),
             "color": self.form_data.get("mapbox_color"),
         }
-
-
-class DartDeckGLMultiLayer(BaseViz):
-    """Pile on multiple DeckGL layers"""
-
-    viz_type = "deck_dart_multi"
-    verbose_name = _("Deck.gl - Multiple Layers")
-
-    is_timeseries = False
-    credits = '<a href="https://uber.github.io/deck.gl/">deck.gl</a>'
-
-    @deprecated(deprecated_in="3.0")
-    def query_obj(self) -> QueryObjectDict:
-        return {}
-
-    @deprecated(deprecated_in="3.0")
-    def get_data(self, df: pd.DataFrame) -> VizData:
-        # Late imports to avoid circular import issues
-        # pylint: disable=import-outside-toplevel
-        from superset import db
-        from superset.models.slice import Slice
-
-        slice_ids = self.form_data.get("deck_slices")
-        slices = db.session.query(Slice).filter(Slice.id.in_(slice_ids)).all()
-        return {
-            "mapboxApiKey": config["MAPBOX_API_KEY"],
-            "slices": [slc.data for slc in slices],
-        }
-
 
 class DeckGLMultiLayer(BaseViz):
     """Pile on multiple DeckGL layers"""
@@ -1561,6 +1530,81 @@ class DeckGLMultiLayer(BaseViz):
     def query_obj(self) -> QueryObjectDict:
         return {}
 
+    def _filter_items_by_scope(
+        self,
+        items: list[Any],
+        layer_index: int,
+        layer_filter_scope: dict[str, list[int]],
+    ) -> list[Any]:
+        """Filter items based on layer filter scope."""
+        filtered_items = []
+        for filter_item in items:
+            filter_id = getattr(filter_item, "filterId", None)
+            if filter_id:
+                filter_scope = layer_filter_scope.get(filter_id, [])
+                if filter_scope is None:
+                    filter_scope = []
+                if not filter_scope or layer_index in filter_scope:
+                    filtered_items.append(filter_item)
+            else:
+                filtered_items.append(filter_item)
+        return filtered_items
+
+    def _process_extra_form_data_filters(
+        self,
+        layer_index: int,
+        layer_filter_scope: dict[str, list[int]],
+        filter_data_mapping: dict[str, list[Any]],
+        extra_form_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Process extra_form_data filters with layer-specific filtering."""
+        if not extra_form_data or not filter_data_mapping:
+            return extra_form_data
+
+        filtered_extra_form_data_filters = []
+        for filter_id, filter_scope in layer_filter_scope.items():
+            if filter_scope is None:
+                filter_scope = []
+
+            if not filter_scope or layer_index in filter_scope:
+                filters_from_this_filter = filter_data_mapping.get(filter_id, [])
+                filtered_extra_form_data_filters.extend(filters_from_this_filter)
+
+        return {
+            **extra_form_data,
+            "filters": filtered_extra_form_data_filters,
+        }
+
+    def _apply_layer_filtering(
+        self, form_data: dict[str, Any], layer_index: int
+    ) -> dict[str, Any]:
+        """Apply layer-specific filtering to form data."""
+        layer_filter_scope = self.form_data.get("layer_filter_scope", {})
+        filter_data_mapping = self.form_data.get("filter_data_mapping", {})
+
+        if not layer_filter_scope:
+            form_data["extra_filters"] = self.form_data.get("extra_filters", [])
+            form_data["adhoc_filters"] = self.form_data.get("adhoc_filters")
+            form_data["extra_form_data"] = self.form_data.get("extra_form_data")
+            return form_data
+
+        filtered_extra_filters = self._filter_items_by_scope(
+            self.form_data.get("extra_filters", []), layer_index, layer_filter_scope
+        )
+        filtered_adhoc_filters = self._filter_items_by_scope(
+            self.form_data.get("adhoc_filters", []), layer_index, layer_filter_scope
+        )
+
+        extra_form_data = self.form_data.get("extra_form_data", {})
+        filtered_extra_form_data = self._process_extra_form_data_filters(
+            layer_index, layer_filter_scope, filter_data_mapping, extra_form_data
+        )
+
+        form_data["extra_filters"] = filtered_extra_filters
+        form_data["adhoc_filters"] = filtered_adhoc_filters
+        form_data["extra_form_data"] = filtered_extra_form_data
+        return form_data
+
     @deprecated(deprecated_in="3.0")
     def get_data(self, df: pd.DataFrame) -> VizData:
         # Late imports to avoid circular import issues
@@ -1570,9 +1614,35 @@ class DeckGLMultiLayer(BaseViz):
 
         slice_ids = self.form_data.get("deck_slices")
         slices = db.session.query(Slice).filter(Slice.id.in_(slice_ids)).all()
+
+        features: dict[str, list[Any]] = {}
+
+        for layer_index, slc in enumerate(slices):
+            form_data = slc.form_data
+            form_data = self._apply_layer_filtering(form_data, layer_index)
+
+            viz_type_name = form_data.get("viz_type")
+            viz_class = viz_types.get(viz_type_name)
+            if not viz_class:
+                continue  # skip unknown viz types
+
+            viz_instance = viz_class(datasource=slc.datasource, form_data=form_data)
+            payload = viz_instance.get_payload()
+
+            if (
+                payload
+                and "data" in payload
+                and payload["data"] is not None
+                and "features" in payload["data"]
+            ):
+                if viz_type_name not in features:
+                    features[viz_type_name] = []
+                features[viz_type_name].extend(payload["data"]["features"])
+
         return {
-            "mapboxApiKey": config["MAPBOX_API_KEY"],
-            "slices": [slc.data for slc in slices],
+            "features": features,
+            "mapboxApiKey": current_app.config["MAPBOX_API_KEY"],
+            "slices": [slc.data for slc in slices if slc.data is not None],
         }
 
 
@@ -1582,6 +1652,77 @@ class BaseDeckGLViz(BaseViz):
     is_timeseries = False
     credits = '<a href="https://uber.github.io/deck.gl/">deck.gl</a>'
     spatial_control_keys: list[str] = []
+
+    def __init__(
+        self, datasource: BaseDatasource, form_data: dict[str, Any], **kwargs: Any
+    ) -> None:
+        # Apply layer-specific filtering for deck multi layer charts in edit mode
+        if self._should_apply_layer_filtering(form_data):
+            form_data = self._apply_multilayer_filtering(form_data)
+        super().__init__(datasource, form_data, **kwargs)
+
+    def _should_apply_layer_filtering(self, form_data: dict[str, Any]) -> bool:
+        """Check if this is a deck layer that's part of a multilayer setup."""
+        return (
+            "slice_id" in form_data
+            and "adhoc_filters" in form_data
+            and self._has_layer_scoped_filters(form_data)
+        )
+
+    def _has_layer_scoped_filters(self, form_data: dict[str, Any]) -> bool:
+        """Check if any filter has layerFilterScope (indicates multilayer context)."""
+        for filter_item in form_data.get("adhoc_filters", []):
+            if (
+                isinstance(filter_item, dict)
+                and filter_item.get("layerFilterScope") is not None
+            ):
+                return True
+        return False
+
+    def _apply_multilayer_filtering(self, form_data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Filter adhoc_filters based on layer scope for this specific layer.
+
+        In deck multi-layer charts, each individual layer should only receive:
+        1. Global filters (filters without layerFilterScope)
+        2. Filters specifically scoped to this layer
+
+        This prevents over-filtering when multiple layer-scoped filters are present.
+        """
+        slice_id = form_data.get("slice_id")
+        deck_slices = self._get_deck_slices_from_filters(form_data)
+
+        if not deck_slices or slice_id not in deck_slices:
+            return form_data
+
+        layer_index = deck_slices.index(slice_id)
+        filtered_adhoc_filters = []
+
+        for filter_item in form_data.get("adhoc_filters", []):
+            layer_scope = self._get_filter_layer_scope(filter_item)
+
+            # Include global filters (no layer scope) or filters scoped to this layer
+            if layer_scope is None or layer_index in layer_scope:
+                filtered_adhoc_filters.append(filter_item)
+
+        modified_form_data = form_data.copy()
+        modified_form_data["adhoc_filters"] = filtered_adhoc_filters
+        return modified_form_data
+
+    def _get_deck_slices_from_filters(
+        self, form_data: dict[str, Any]
+    ) -> list[int] | None:
+        """Extract deck_slices from any filter that contains it."""
+        for filter_item in form_data.get("adhoc_filters", []):
+            if isinstance(filter_item, dict) and "deck_slices" in filter_item:
+                return filter_item["deck_slices"]
+        return None
+
+    def _get_filter_layer_scope(self, filter_item: Any) -> list[int] | None:
+        """Extract layerFilterScope from a filter item."""
+        if isinstance(filter_item, dict):
+            return filter_item.get("layerFilterScope")
+        return getattr(filter_item, "layerFilterScope", None)
 
     @deprecated(deprecated_in="3.0")
     def get_metrics(self) -> list[str]:
@@ -1686,24 +1827,6 @@ class BaseDeckGLViz(BaseViz):
             )
             self.form_data["adhoc_filters"].append(filter_)
 
-    def get_col_label(self, n):
-        if isinstance(n, dict) and "label" in n:
-            return n["label"]
-        else:
-            return n
-
-    def get_unique_cols(self, cols):
-        labels = []
-        uniqueCols = []
-        for col in cols:
-            if isinstance(col, dict) and "label" in col and col["label"] not in labels:
-                labels.append(col["label"])
-                uniqueCols.append(col)
-            elif col not in labels:
-                labels.append(col)
-                uniqueCols.append(col)
-        return uniqueCols
-
     @deprecated(deprecated_in="3.0")
     def query_obj(self) -> QueryObjectDict:
         # add NULL filters
@@ -1721,14 +1844,11 @@ class BaseDeckGLViz(BaseViz):
 
         if self.form_data.get("js_columns"):
             group_by += self.form_data.get("js_columns") or []
-
-        if self.form_data.get("flyout_columns"):
-            group_by += self.form_data.get("flyout_columns") or []
         # Ensure this value is sorted so that it does not
         # cause the cache key generation (which hashes the
         # query object) to generate different keys for values
         # that should be considered the same.
-        group_by = sorted(self.get_unique_cols(group_by), key=self.get_col_label)
+        group_by = sorted(set(group_by))
         if metrics := self.get_metrics():
             query_obj["groupby"] = group_by
             query_obj["metrics"] = metrics
@@ -1744,13 +1864,6 @@ class BaseDeckGLViz(BaseViz):
     @deprecated(deprecated_in="3.0")
     def get_js_columns(self, data: dict[str, Any]) -> dict[str, Any]:
         cols = self.form_data.get("js_columns") or []
-        cols = list(map(self.get_col_label, cols))
-        return {col: data.get(col) for col in cols}
-
-    @deprecated(deprecated_in="3.0")
-    def get_flyout_columns(self, data: dict[str, Any]) -> dict[str, Any]:
-        cols = self.form_data.get("flyout_columns") or []
-        cols = list(map(self.get_col_label, cols))
         return {col: data.get(col) for col in cols}
 
     @deprecated(deprecated_in="3.0")
@@ -1768,14 +1881,11 @@ class BaseDeckGLViz(BaseViz):
             extra_props = self.get_js_columns(data)
             if extra_props:
                 feature["extraProps"] = extra_props
-            flyout_props = self.get_flyout_columns(data)
-            if flyout_props:
-                feature["flyoutProps"] = flyout_props
             features.append(feature)
 
         return {
             "features": features,
-            "mapboxApiKey": config["MAPBOX_API_KEY"],
+            "mapboxApiKey": current_app.config["MAPBOX_API_KEY"],
             "metricLabels": self.metric_labels,
         }
 
@@ -2050,39 +2160,6 @@ class DeckContour(BaseDeckGLViz):
         return super().get_data(df)
 
 
-class DartDeckGeoJson(BaseDeckGLViz):
-    """Dart's GeoJSONLayer"""
-
-    viz_type = "deck_dart_geojson"
-    verbose_name = _("Dart - GeoJSON")
-
-    @deprecated(deprecated_in="3.0")
-    def query_obj(self) -> QueryObjectDict:
-        query_obj = super().query_obj()
-        query_obj["columns"] += [self.form_data.get("geojson")]
-        query_obj["metrics"] = []
-        query_obj["groupby"] = []
-        return query_obj
-
-    @deprecated(deprecated_in="3.0")
-    def get_properties(self, data: dict[str, Any]) -> dict[str, Any]:
-        geojson = data[get_column_name(self.form_data["geojson"])]
-        
-        if not geojson and self.form_data['filter_nulls']:
-            return None
-        
-        if is_dictionary_string(geojson):
-            return json.loads(geojson)
-        else:
-            geom = plpygis.Geometry(geojson)
-            new_geojson = {
-                "type": "Feature",
-                "properties": {},
-                "geometry": geom.geojson,
-            }
-            return new_geojson
-
-
 class DeckGeoJson(BaseDeckGLViz):
     """deck.gl's GeoJSONLayer"""
 
@@ -2133,7 +2210,7 @@ class DeckArc(BaseDeckGLViz):
 
         return {
             "features": super().get_data(df)["features"],
-            "mapboxApiKey": config["MAPBOX_API_KEY"],
+            "mapboxApiKey": current_app.config["MAPBOX_API_KEY"],
         }
 
 
@@ -2477,5 +2554,5 @@ def get_subclasses(cls: type[BaseViz]) -> set[type[BaseViz]]:
 viz_types = {
     o.viz_type: o
     for o in get_subclasses(BaseViz)
-    if o.viz_type not in config["VIZ_TYPE_DENYLIST"]
+    if o.viz_type not in current_app.config["VIZ_TYPE_DENYLIST"]
 }
