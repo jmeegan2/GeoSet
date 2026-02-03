@@ -19,11 +19,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { css, styled, t, useTheme, SupersetClient } from '@superset-ui/core';
 import { useDrag, useDrop } from 'react-dnd';
-import ControlHeader from 'src/explore/components/ControlHeader';
 import { Icons } from '@superset-ui/core/components/Icons';
 import { Tooltip } from '@superset-ui/core/components/Tooltip';
 import { Checkbox } from '@superset-ui/core/components/Checkbox';
 import { Popover } from '@superset-ui/core/components/Popover';
+// eslint-disable-next-line no-restricted-imports
+import { Button } from '@superset-ui/core/components/Button';
+import ControlHeader from 'src/explore/components/ControlHeader';
 import {
   DragContainer,
   OptionControlContainer,
@@ -43,6 +45,8 @@ interface DeckSliceOption {
 export interface DeckSliceConfig {
   sliceId: number;
   autozoom: boolean;
+  legendCollapsed: boolean;
+  initiallyHidden: boolean;
 }
 
 export interface DeckSlicesControlProps {
@@ -87,35 +91,126 @@ interface DragItem {
   type: string;
 }
 
+interface SliceSettings {
+  autozoom: boolean;
+  legendCollapsed: boolean;
+  initiallyHidden: boolean;
+}
+
 interface SelectedSliceRowProps {
   label: string;
   sliceId: number;
   autozoom: boolean;
+  legendCollapsed: boolean;
+  initiallyHidden: boolean;
   index: number;
   onRemove: (sliceId: number) => void;
   onMoveLabel: (dragIndex: number, hoverIndex: number) => void;
-  onToggleAutozoom: (sliceId: number) => void;
+  onUpdateSliceSettings: (sliceId: number, settings: SliceSettings) => void;
 }
 
-const AutozoomToggle = styled.div`
+const SettingsButton = styled.div`
   display: flex;
   align-items: center;
   margin-left: auto;
-  padding-right: ${({ theme }) => theme.sizeUnit}px;
+  padding: 0 ${({ theme }) => theme.sizeUnit}px;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.8;
+  }
+`;
+
+const SettingsPopoverContent = styled.div`
+  min-width: 200px;
+`;
+
+const PopoverTitle = styled.span`
+  display: block;
+  padding-bottom: 8px;
+  margin-bottom: -4px;
+  border-bottom: 1px solid ${({ theme }) => theme.colorBorderSecondary};
+`;
+
+const SettingsRow = styled.div`
+  display: flex;
+  align-items: center;
+  padding: ${({ theme }) => theme.sizeUnit * 0.5}px 0;
+`;
+
+const ButtonRow = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: ${({ theme }) => theme.sizeUnit}px;
+  margin-top: ${({ theme }) => theme.sizeUnit * 2}px;
+`;
+
+const SettingsLabel = styled.span`
+  font-size: ${({ theme }) => theme.fontSizeSM}px;
+  color: ${({ theme }) => theme.colorText};
+  margin-left: ${({ theme }) => theme.sizeUnit}px;
+  flex: 1;
+`;
+
+const InfoIcon = styled.span`
+  display: flex;
+  align-items: center;
+  margin-left: ${({ theme }) => theme.sizeUnit}px;
 `;
 
 const SelectedSliceRow = ({
   label,
   sliceId,
   autozoom,
+  legendCollapsed,
+  initiallyHidden,
   index,
   onRemove,
   onMoveLabel,
-  onToggleAutozoom,
+  onUpdateSliceSettings,
 }: SelectedSliceRowProps) => {
   const theme = useTheme();
   const dropRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Draft state for settings - only applied on Save
+  const [draftAutozoom, setDraftAutozoom] = useState(autozoom);
+  const [draftLegendCollapsed, setDraftLegendCollapsed] =
+    useState(legendCollapsed);
+  const [draftInitiallyHidden, setDraftInitiallyHidden] =
+    useState(initiallyHidden);
+
+  // Reset draft state when popover opens
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setDraftAutozoom(autozoom);
+      setDraftLegendCollapsed(legendCollapsed);
+      setDraftInitiallyHidden(initiallyHidden);
+    }
+    setSettingsOpen(open);
+  };
+
+  // Apply draft changes on Save - apply ALL changes in one update
+  const handleSave = () => {
+    const autozoomChanged = draftAutozoom !== autozoom;
+    const legendCollapsedChanged = draftLegendCollapsed !== legendCollapsed;
+    const initiallyHiddenChanged = draftInitiallyHidden !== initiallyHidden;
+
+    if (autozoomChanged || legendCollapsedChanged || initiallyHiddenChanged) {
+      onUpdateSliceSettings(sliceId, {
+        autozoom: draftAutozoom,
+        legendCollapsed: draftLegendCollapsed,
+        initiallyHidden: draftInitiallyHidden,
+      });
+    }
+    setSettingsOpen(false);
+  };
+
+  // Close without saving - draft changes are discarded
+  const handleClose = () => {
+    setSettingsOpen(false);
+  };
 
   const [{ isDragging }, dragRef] = useDrag({
     item: { type: DND_TYPE, dragIndex: index },
@@ -141,6 +236,73 @@ const SelectedSliceRow = ({
     !isDragging &&
     labelRef.current &&
     labelRef.current.scrollWidth > labelRef.current.clientWidth;
+
+  const settingsContent = (
+    <SettingsPopoverContent onClick={e => e.stopPropagation()}>
+      <SettingsRow>
+        <Checkbox
+          checked={draftAutozoom}
+          onChange={() => setDraftAutozoom(!draftAutozoom)}
+        />
+        <SettingsLabel>{t('Auto Zoom')}</SettingsLabel>
+        <Tooltip
+          title={t('Automatically zoom the map to fit this layer')}
+          mouseLeaveDelay={0}
+        >
+          <InfoIcon>
+            <Icons.InfoCircleOutlined
+              iconSize="s"
+              iconColor={theme.colorTextSecondary}
+            />
+          </InfoIcon>
+        </Tooltip>
+      </SettingsRow>
+      <SettingsRow>
+        <Checkbox
+          checked={draftLegendCollapsed}
+          onChange={() => setDraftLegendCollapsed(!draftLegendCollapsed)}
+        />
+        <SettingsLabel>{t('Collapse Legend')}</SettingsLabel>
+        <Tooltip
+          title={t('Start with the legend entry collapsed in the map legend')}
+          mouseLeaveDelay={0}
+        >
+          <InfoIcon>
+            <Icons.InfoCircleOutlined
+              iconSize="s"
+              iconColor={theme.colorTextSecondary}
+            />
+          </InfoIcon>
+        </Tooltip>
+      </SettingsRow>
+      <SettingsRow>
+        <Checkbox
+          checked={draftInitiallyHidden}
+          onChange={() => setDraftInitiallyHidden(!draftInitiallyHidden)}
+        />
+        <SettingsLabel>{t('Hidden by Default')}</SettingsLabel>
+        <Tooltip
+          title={t('Hide this layer when the map first loads')}
+          mouseLeaveDelay={0}
+        >
+          <InfoIcon>
+            <Icons.InfoCircleOutlined
+              iconSize="s"
+              iconColor={theme.colorTextSecondary}
+            />
+          </InfoIcon>
+        </Tooltip>
+      </SettingsRow>
+      <ButtonRow>
+        <Button buttonStyle="secondary" cta onClick={handleClose}>
+          {t('Close')}
+        </Button>
+        <Button buttonStyle="primary" cta onClick={handleSave}>
+          {t('Save')}
+        </Button>
+      </ButtonRow>
+    </SettingsPopoverContent>
+  );
 
   return (
     <DragContainer
@@ -175,24 +337,25 @@ const SelectedSliceRow = ({
             <LabelText ref={labelRef}>{label}</LabelText>
           )}
         </Label>
-        <AutozoomToggle onClick={e => e.stopPropagation()}>
-          <Tooltip title={t('Auto zoom to this layer')}>
-            <Checkbox
-              checked={autozoom}
-              onChange={() => onToggleAutozoom(sliceId)}
-            />
-          </Tooltip>
-          <span
-            css={css`
-              font-size: ${theme.fontSizeSM}px;
-              color: ${theme.colorTextSecondary};
-              margin-left: ${theme.sizeUnit}px;
-              white-space: nowrap;
-            `}
+        <Popover
+          title={<PopoverTitle>{t('Layer Properties')}</PopoverTitle>}
+          content={settingsContent}
+          trigger="click"
+          open={settingsOpen}
+          onOpenChange={handleOpenChange}
+          placement="right"
+        >
+          <SettingsButton
+            onClick={e => {
+              e.stopPropagation();
+              setSettingsOpen(!settingsOpen);
+            }}
           >
-            {t('Auto Zoom')}
-          </span>
-        </AutozoomToggle>
+            <Tooltip title={t('Layer settings')} mouseEnterDelay={1}>
+              <Icons.SettingOutlined iconSize="m" iconColor={theme.colorIcon} />
+            </Tooltip>
+          </SettingsButton>
+        </Popover>
       </OptionControlContainer>
     </DragContainer>
   );
@@ -203,7 +366,19 @@ const normalizeValue = (
   value: (DeckSliceConfig | number)[] | undefined,
 ): DeckSliceConfig[] =>
   value?.map(item =>
-    typeof item === 'number' ? { sliceId: item, autozoom: true } : item,
+    typeof item === 'number'
+      ? {
+          sliceId: item,
+          autozoom: true,
+          legendCollapsed: false,
+          initiallyHidden: false,
+        }
+      : {
+          sliceId: item.sliceId,
+          autozoom: item.autozoom ?? true,
+          legendCollapsed: item.legendCollapsed ?? false,
+          initiallyHidden: item.initiallyHidden ?? false,
+        },
   ) ?? [];
 
 const DeckSlicesControl = ({
@@ -272,9 +447,20 @@ const DeckSlicesControl = ({
       localValues
         .map(v => {
           const opt = options.find(o => o.value === v.sliceId);
-          return opt ? { ...opt, autozoom: v.autozoom } : null;
+          return opt
+            ? {
+                ...opt,
+                autozoom: v.autozoom,
+                legendCollapsed: v.legendCollapsed,
+                initiallyHidden: v.initiallyHidden,
+              }
+            : null;
         })
-        .filter(Boolean) as (DeckSliceOption & { autozoom: boolean })[],
+        .filter(Boolean) as (DeckSliceOption & {
+        autozoom: boolean;
+        legendCollapsed: boolean;
+        initiallyHidden: boolean;
+      })[],
     [localValues, options],
   );
 
@@ -294,16 +480,28 @@ const DeckSlicesControl = ({
     updateValues(
       isSelected
         ? localValues.filter(v => v.sliceId !== sliceId)
-        : [...localValues, { sliceId, autozoom: true }],
+        : [
+            ...localValues,
+            {
+              sliceId,
+              autozoom: true,
+              legendCollapsed: false,
+              initiallyHidden: false,
+            },
+          ],
     );
   };
 
-  const handleToggleAutozoom = (sliceId: number) =>
-    updateValues(
-      localValues.map(v =>
-        v.sliceId === sliceId ? { ...v, autozoom: !v.autozoom } : v,
-      ),
+  // Update all settings for a slice in one call to avoid stale state issues
+  const handleUpdateSliceSettings = (
+    sliceId: number,
+    settings: SliceSettings,
+  ) => {
+    const newValues = localValues.map(v =>
+      v.sliceId === sliceId ? { ...v, ...settings } : v,
     );
+    updateValues(newValues);
+  };
 
   const moveLabel = (dragIndex: number, hoverIndex: number) => {
     const newValues = [...localValues];
@@ -357,10 +555,12 @@ const DeckSlicesControl = ({
             label={opt.label}
             sliceId={opt.value}
             autozoom={opt.autozoom}
+            legendCollapsed={opt.legendCollapsed}
+            initiallyHidden={opt.initiallyHidden}
             index={index}
             onRemove={handleRemove}
             onMoveLabel={moveLabel}
-            onToggleAutozoom={handleToggleAutozoom}
+            onUpdateSliceSettings={handleUpdateSliceSettings}
           />
         ))}
         <Popover
