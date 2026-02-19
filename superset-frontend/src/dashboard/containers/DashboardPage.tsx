@@ -32,6 +32,7 @@ import {
 import { hydrateDashboard } from 'src/dashboard/actions/hydrate';
 import { setDatasources } from 'src/dashboard/actions/datasources';
 import injectCustomCss from 'src/dashboard/util/injectCustomCss';
+import getBootstrapData from 'src/utils/getBootstrapData';
 import {
   getAllActiveFilters,
   getRelevantDataMask,
@@ -211,7 +212,7 @@ export const DashboardPage: FC<PageProps> = ({ idOrSlug }: PageProps) => {
       document.title = dashboard_title;
     }
     return () => {
-      document.title = 'Superset';
+      document.title = getBootstrapData().common.menu_data.brand.alt;
     };
   }, [dashboard_title]);
 

@@ -325,7 +325,7 @@ AUTH_RATE_LIMIT = "5 per second"
 # GLOBALS FOR APP Builder
 # ------------------------------
 # Uncomment to setup Your App name
-APP_NAME = "Superset"
+APP_NAME = "ACF Situational Awareness Tool"
 
 # Specify the App icon
 APP_ICON = "/static/assets/images/superset-logo-horiz.png"
@@ -749,8 +749,8 @@ EXTRA_CATEGORICAL_COLOR_SCHEMES: list[dict[str, Any]] = []
 THEME_DEFAULT: Theme = {"algorithm": "default"}
 
 # Dark theme configuration
-# Applied when user selects dark mode
-THEME_DARK: Theme = {"algorithm": "dark"}
+# Set to None to disable light/dark mode selection
+THEME_DARK: Theme = None
 
 # Theme behavior and user preference settings
 # To force a single theme on all users, set THEME_DARK = None
@@ -759,7 +759,7 @@ THEME_DARK: Theme = {"algorithm": "dark"}
 # - OS preference detection is automatically enabled
 #
 # Enable UI-based theme administration for admins
-ENABLE_UI_THEME_ADMINISTRATION = True  # Allows admins to set system themes via UI
+ENABLE_UI_THEME_ADMINISTRATION = False  # Disabled to use config-based themes only
 
 # Custom font configuration
 # Load external fonts at runtime without rebuilding the application
@@ -1075,6 +1075,10 @@ MAPBOX_API_KEY = os.environ.get("MAPBOX_API_KEY", "")
 
 # Maximum number of rows returned for any analytical database query
 SQL_MAX_ROW = 500000
+
+# Maximum number of rows for any query with Server Pagination in Table Viz type
+TABLE_VIZ_MAX_ROW_SERVER = 500000
+
 
 # Maximum number of rows for any query with Server Pagination in Table Viz type
 TABLE_VIZ_MAX_ROW_SERVER = 500000

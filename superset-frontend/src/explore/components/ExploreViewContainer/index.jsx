@@ -52,6 +52,7 @@ import {
 } from 'src/logger/LogUtils';
 import { ensureAppRoot } from 'src/utils/pathUtils';
 import { getUrlParam } from 'src/utils/urlUtils';
+import getBootstrapData from 'src/utils/getBootstrapData';
 import cx from 'classnames';
 import * as chartActions from 'src/components/Chart/chartAction';
 import { fetchDatasourceMetadata } from 'src/dashboard/actions/datasources';
@@ -272,7 +273,7 @@ function ExploreViewContainer(props) {
       document.title = props.sliceName;
     }
     return () => {
-      document.title = 'Superset';
+      document.title = getBootstrapData().common.menu_data.brand.alt;
     };
   }, [props.sliceName]);
 

@@ -158,7 +158,7 @@ class SupersetAppInitializer:  # pylint: disable=too-many-public-methods
         from superset.charts.api import ChartRestApi
         from superset.charts.data.api import ChartDataRestApi
         from superset.css_templates.api import CssTemplateRestApi
-        from superset.dart_map.api import DartMapRestApi
+        from superset.geoset_map.api import GeoSetMapRestApi
         from superset.dashboards.api import DashboardRestApi
         from superset.dashboards.filter_state.api import DashboardFilterStateRestApi
         from superset.dashboards.permalink.api import DashboardPermalinkRestApi
@@ -232,6 +232,11 @@ class SupersetAppInitializer:  # pylint: disable=too-many-public-methods
 
         self.superset_app.register_blueprint(health_blueprint)
 
+        # Register login help blueprint
+        from superset.views.login_help import login_help_blueprint
+
+        self.superset_app.register_blueprint(login_help_blueprint)
+
         #
         # Setup API views
         #
@@ -244,7 +249,7 @@ class SupersetAppInitializer:  # pylint: disable=too-many-public-methods
         appbuilder.add_api(ChartRestApi)
         appbuilder.add_api(ChartDataRestApi)
         appbuilder.add_api(CssTemplateRestApi)
-        appbuilder.add_api(DartMapRestApi)
+        appbuilder.add_api(GeoSetMapRestApi)
         appbuilder.add_api(ThemeRestApi)
         appbuilder.add_api(CurrentUserRestApi)
         appbuilder.add_api(UserRestApi)

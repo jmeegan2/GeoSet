@@ -1,7 +1,7 @@
 variables:
   CODE_DIRECTORY: ./
   DAST_SCAN_ENABLED: "true"
-  MAIN_BRANCH: "main"
+  MAIN_BRANCH: "dart"
 
 default:
   tags:
@@ -10,12 +10,15 @@ default:
 workflow:
   rules:
     - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
+      variables:
+        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:release"
     - when: always
       variables:
         FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID"
         
 stages:
   - build
+  - security-test
 
 Build Dev Image and Push to Registry:
   image:
@@ -27,7 +30,8 @@ Build Dev Image and Push to Registry:
   script:
     - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - export STORAGE_DRIVER=vfs
-    - buildah build --target production -t $FULL_IMAGE_NAME .
+    # Pass version as build argument
+    - buildah build --no-cache --build-arg BUILD_VERSION="$CI_PIPELINE_ID" --target production -t $FULL_IMAGE_NAME .
     - buildah push $FULL_IMAGE_NAME
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -74,8 +78,26 @@ Build Release Image and Push to Registry:
     - VERSION_TAG="$MONTH_ABBR$YEAR-v$INCREMENT"
     - FULL_IMAGE_NAME="$CI_REGISTRY/$CI_PROJECT_PATH:$VERSION_TAG"
     - echo "Building release image with tag $VERSION_TAG"
-    - buildah build --target production -t $FULL_IMAGE_NAME .
+    # Pass version as build argument
+    - buildah build --no-cache --build-arg BUILD_VERSION="$VERSION_TAG" --target production -t $FULL_IMAGE_NAME .
     - buildah push $FULL_IMAGE_NAME
   rules:
     - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
+
+Trivy Container Scan:
+  image:
+    name: aquasec/trivy:0.68.1
+    entrypoint: [""]
+  stage: security-test
+  needs:
+    - job: Build Dev Image and Push to Registry
+      optional: true
+    - job: Build Release Image and Push to Registry
+      optional: true
+  variables:
+    TRIVY_USERNAME: "$CI_REGISTRY_USER"
+    TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+  script:
+    - trivy image --severity HIGH,CRITICAL --exit-code 1 "$FULL_IMAGE_NAME"
+  allow_failure: true
 

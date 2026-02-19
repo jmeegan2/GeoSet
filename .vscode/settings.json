@@ -1,4 +1,4 @@
-{    
+{
     "[python]": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "ms-python.black-formatter",
@@ -9,10 +9,10 @@
             88
         ]
     },
-    // environment variables stored in .env at the root of the directory will automatically be injected 
+    // environment variables stored in .env at the root of the directory will automatically be injected
     // into all Python files at runtime when run through VS Code.
     "python.envFile": "${workspaceFolder}/.env",
-    
+
     "python-envs.pythonProjects": [
         {
             "path": "",

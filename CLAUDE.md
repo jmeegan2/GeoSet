@@ -16,6 +16,8 @@ Details related to the frontend and plugin development can be found within the `
 
 ## Important Notes
 
+- This is a GitLab repository. Use the `glab` CLI (not `gh`) for all GitLab operations such as creating merge requests, viewing pipelines, etc.
+- When creating a merge request, consult the `MAIN_BRANCH` variable in `.gitlab-ci.yml` to determine the correct target branch.
 - Always use context7 when I need code generation, setup or configuration steps, or
 library/API documentation. This means you should automatically use the Context7 MCP
 tools to resolve library id and get library docs without me having to explicitly ask.
