@@ -225,6 +225,9 @@ EXPOSE ${SUPERSET_PORT}
 ######################################################################
 FROM python-common AS production
 
+# Build version injected at build time
+ARG BUILD_VERSION="6.0.0"
+
 # Copy ecpg utility from postgres stage
 COPY --from=postgres-ecpg /usr/pgsql-18/bin/ecpg /usr/bin/ecpg
 
@@ -236,6 +239,8 @@ RUN --mount=type=cache,target=${SUPERSET_HOME}/.cache/uv \
 # Upgrade packages with known CVEs to patched versions
 RUN uv pip install --no-cache --reinstall \
         "brotli>=1.2.0" \
+        "cryptography>=46.0.5" \
+        "pillow>=12.1.1" \
         "pyasn1>=0.6.2" \
         "urllib3>=2.6.3" \
         "setuptools>=78.1.1"
@@ -250,9 +255,14 @@ RUN rm -rf /usr/lib/python3.11/site-packages/setuptools-65.5.1* \
 RUN rpm -e --nodeps nodejs nodejs-docs nodejs-full-i18n npm 2>/dev/null || true \
     && rpm -e --nodeps dnf dnf-data dnf-plugins-core dnf-plugin-subscription-manager \
                        python3-dnf python3-dnf-plugins-core python3-libdnf libdnf \
-                       yum gnupg2 gnupg2-smime brotli 2>/dev/null || true \
-    && rm -rf /var/cache/dnf/* /var/cache/yum/* /var/lib/dnf/* /var/lib/rpm/__db*
+                       yum gnupg2 gnupg2-smime 2>/dev/null || true \
+    && rpm -qa | grep -i brotli | xargs -r rpm -e --nodeps 2>/dev/null || true \
+    && rm -rf /var/cache/dnf/* /var/cache/yum/* /var/lib/dnf/* /var/lib/rpm/__db* \
+    && find / -name 'libbrotli*.so*' -delete 2>/dev/null || true
 
 RUN python -m compileall /app/superset
+
+# Write version info at build time
+RUN printf '{"GIT_SHA":"","version":"%s"}' "$BUILD_VERSION" > /app/superset/static/version_info.json
 
 USER superset

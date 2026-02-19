@@ -30,6 +30,7 @@ import {
 import { useState, useMemo } from 'react';
 import { capitalize } from 'lodash/fp';
 import getBootstrapData from 'src/utils/getBootstrapData';
+import { LoginHelpCard } from './loginHelp';
 
 type OAuthProvider = {
   name: string;
@@ -133,10 +134,11 @@ export default function Login() {
     <Flex
       justify="center"
       align="center"
+      vertical
       data-test="login-form"
       css={css`
         width: 100%;
-        height: calc(100vh - 200px);
+        min-height: calc(100vh - 200px);
       `}
     >
       <StyledCard title={t('Sign in')} padded>
@@ -151,7 +153,7 @@ export default function Login() {
                     iconPosition="start"
                     icon={getAuthIconElement(provider.name)}
                   >
-                    {t('Sign in with')} {capitalize(provider.name)}
+                    {t('Sign in with')} {provider.name}
                   </Button>
                 </Form.Item>
               ))}
@@ -166,14 +168,13 @@ export default function Login() {
                   <Button
                     href={buildProviderLoginUrl(provider.name)}
                     block
-                    iconPosition="start"
-                    icon={getAuthIconElement(provider.name)}
                   >
-                    {t('Sign in with')} {capitalize(provider.name)}
+                    {t('Sign in with')} {provider.name}
                   </Button>
                 </Form.Item>
               ))}
             </Form>
+            <LoginHelpCard />
           </Flex>
         )}
 

@@ -24,6 +24,8 @@
       {% block title %}
         {% if title %}
           {{ title }}
+        {% else %}
+          {{ appbuilder.app_name }}
         {% endif %}
       {% endblock %}
     </title>
