@@ -74,6 +74,7 @@ import {
 import { handleSchemaCheck } from '../../utils/migrationApi';
 import MeasureOverlay, { MeasureState } from '../../components/MeasureOverlay';
 import { Coordinate } from '../../utils/measureDistance';
+import { setLiveViewport } from '../../utils/liveViewportStore';
 import ClickPopupBox, {
   ClickedFeatureInfo,
 } from '../../components/ClickPopupBox';
@@ -1011,6 +1012,10 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
   }, [measureState.isActive]);
 
   const viewport: Viewport = useMemo(() => {
+    // Static viewport takes precedence — use the saved viewport as-is.
+    if (formData.enableStaticViewport) {
+      return props.viewport;
+    }
     if (!formData.autozoom || !payload?.data?.features?.length) {
       return props.viewport;
     }
@@ -1021,12 +1026,25 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
       height,
     );
   }, [
+    formData.enableStaticViewport,
     formData.autozoom,
     height,
     payload?.data?.features,
     props.viewport,
     width,
   ]);
+
+  // Write live viewport to module-level store (outside Redux) so the actual
+  // viewport control value is only changed by explicit user Save actions.
+  // ViewportControl reads the store on-demand via getLiveViewport.
+  const viewportSetControlValue = useCallback(
+    (control: string, value: JsonValue) => {
+      if (control === 'viewport') {
+        setLiveViewport(value as Viewport);
+      }
+    },
+    [],
+  );
 
   const visualConfig = useMemo(
     () => ({
@@ -1146,6 +1164,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         mapboxApiAccessToken={effectiveMapboxKey || 'no-token'}
         viewport={viewport}
         initialViewport={viewport}
+        setControlValue={viewportSetControlValue}
         layerStates={layerStates}
         mapStyle={mapStyle || formData.mapbox_style}
         height={mapHeight}
