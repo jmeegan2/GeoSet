@@ -20,6 +20,8 @@
 // and also are different concept-wise
 
 import { Layer } from '@deck.gl/core';
+import type { RGBAColor } from './utils/colors';
+import type { SizeLegend } from './components/Legend';
 
 export type Range = [number, number];
 export type Point = [number, number];
@@ -36,6 +38,7 @@ export interface GeoJsonFeature {
   properties: { [key: string]: any };
   extraProps?: { [key: string]: any };
   color?: number[]; // optionally added by addColor
+  sizeValue?: number; // pre-computed pixel size for dynamic point sizing
 }
 
 export function toHex(color: ColorType): string {
@@ -70,4 +73,41 @@ export type LegendItem = {
   };
   type: string;
   description: string;
+};
+
+export type CategoryEntry = {
+  label: string;
+  fillColor: RGBAColor;
+  strokeColor: RGBAColor;
+  enabled?: boolean; // Whether category is visible (default true)
+};
+
+export type MetricEntry = {
+  lower: number;
+  upper: number;
+  startColor: RGBAColor;
+  endColor: RGBAColor;
+  usesPercentBounds?: boolean;
+};
+
+export type LegendEntry = {
+  legendName: string;
+  legendParentTitle?: string;
+  sliceName: string;
+  icon?: string;
+  geometryType?: string;
+  type: 'simple' | 'categorical' | 'metric';
+  simpleStyle?: { fillColor: RGBAColor; strokeColor: RGBAColor };
+  categories?: CategoryEntry[];
+  metric?: MetricEntry;
+  sizeEntry?: SizeLegend;
+  isCombinedMetricSize?: boolean;
+  initialCollapsed?: boolean; // Whether this legend entry starts collapsed
+  loading?: boolean; // True for stub entries whose layer data is still loading
+};
+
+export type LegendGroup = {
+  displayTitle: string;
+  entries: { sliceId: string; legendEntry: LegendEntry }[];
+  initialCollapsed: boolean; // true only if ALL entries have initialCollapsed
 };

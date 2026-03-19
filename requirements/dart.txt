@@ -10,7 +10,7 @@ apispec==6.6.1
     # via
     #   -r requirements/base.in
     #   flask-appbuilder
-apsw==3.51.2.0
+apsw==3.51.3.0
     # via shillelagh
 async-timeout==4.0.3
     # via -r requirements/base.in

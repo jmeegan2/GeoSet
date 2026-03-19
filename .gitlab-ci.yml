@@ -1,7 +1,7 @@
 variables:
   CODE_DIRECTORY: ./
   DAST_SCAN_ENABLED: "true"
-  MAIN_BRANCH: "dart"
+  MAIN_BRANCH: "main"
 
 default:
   tags:

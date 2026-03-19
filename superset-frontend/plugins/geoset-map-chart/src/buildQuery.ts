@@ -27,8 +27,14 @@ export default function buildQuery(formData: QueryFormData) {
   const colorByValue = geojsonConfig?.colorByValue ?? {};
   const dimension = colorByCategory.dimension || formData.dimension;
   const metricColumn = colorByValue.valueColumn;
+  const pointSizeConfig = geojsonConfig?.pointSize;
+  const sizeColumn =
+    pointSizeConfig && typeof pointSizeConfig === 'object'
+      ? pointSizeConfig.valueColumn
+      : undefined;
   const hoverCols = (formData.hoverDataColumns ?? []) as any[];
   const featureCols = (formData.featureInfoColumns ?? []) as any[];
+  const textLabelCol = formData.textLabelColumn;
 
   // Throw if duplicates within a column group
   const checkDupes = (cols: any[], label: string) => {
@@ -43,17 +49,21 @@ export default function buildQuery(formData: QueryFormData) {
   checkDupes(hoverCols, 'Hover-Over Data');
   checkDupes(featureCols, 'Additional Details');
 
+  const geojsonExpr = `ST_AsGeoJSON(${geojsonCol}, 6)`;
+
   // Build columns array
   const columns: any[] = [
     {
       label: 'geojson',
-      sqlExpression: `ST_AsGeoJSON(${geojsonCol})`,
+      sqlExpression: geojsonExpr,
       expressionType: 'SQL',
     },
     dimension,
     ...hoverCols,
     ...featureCols,
     metricColumn,
+    sizeColumn,
+    textLabelCol,
   ].filter(Boolean);
 
   // Dedupe by label to prevent backend errors

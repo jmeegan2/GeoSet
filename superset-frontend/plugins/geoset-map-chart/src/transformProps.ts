@@ -27,18 +27,24 @@ import {
   normalizeCategoryColorMapping,
   addColor,
   computeMetricColorScaleUnified,
+  computeSizeScale,
   ColorByValueConfig,
+  ColorByValueConfigRaw,
   MetricLegend,
+  PointSizeConfigRaw,
   DEFAULT_SUPERSET_COLOR,
   RGBAColor,
   toRGBA,
+  resolvePercentOrNumber,
+  resolveNumericBounds,
 } from './utils/colors';
-import { GeoJsonFeature } from './types';
+import type { GeoJsonFeature } from './types';
+import type { SizeLegend } from './components/Legend';
 import {
   normalizeNullCategory,
   parseRawFeatures,
   getGeometryType,
-} from './utils';
+} from './utils/dataProcessing';
 import { hasValidFill } from './utils/colorsFallback';
 
 const NOOP = () => {};
@@ -61,6 +67,7 @@ const defaultsByGeometry: Record<
   Line: { filled: false, stroked: true, extruded: false },
   Point: { filled: true, stroked: false, extruded: false },
   GeoJSON: { filled: true, stroked: true, extruded: true },
+  TextOverlay: { filled: false, stroked: false, extruded: false },
 };
 
 export default function transformProps(chartProps: ChartProps) {
@@ -99,8 +106,14 @@ export default function transformProps(chartProps: ChartProps) {
     }
   }
 
-  const { globalColoring, colorByCategory, colorByValue, legend } =
-    geojsonConfig;
+  const {
+    globalColoring,
+    colorByCategory,
+    colorByValue: colorByValueRaw,
+    legend,
+    textOverlayStyle,
+  } = geojsonConfig;
+  const colorByValue = colorByValueRaw as ColorByValueConfigRaw | undefined;
 
   const fillColor = globalColoring?.fillColor;
   const strokeColor = globalColoring?.strokeColor;
@@ -126,7 +139,18 @@ export default function transformProps(chartProps: ChartProps) {
     actualGeometryType === 'MultiPoint';
 
   const pointType = isPointGeometry ? globalColoring?.pointType : undefined;
-  const pointSize = isPointGeometry ? globalColoring?.pointSize : undefined;
+  // pointSize is now a top-level geojsonConfig key (number | PointSizeConfigRaw | undefined)
+  // It may also fall back to globalColoring.pointSize for backward compatibility
+  const rawPointSize = isPointGeometry
+    ? (geojsonConfig?.pointSize ?? globalColoring?.pointSize)
+    : undefined;
+  const isStaticSize = rawPointSize == null || typeof rawPointSize === 'number';
+  const pointSize = isStaticSize
+    ? (rawPointSize as number | undefined)
+    : undefined;
+  const pointSizeConfigDynamic = !isStaticSize
+    ? (rawPointSize as PointSizeConfigRaw)
+    : undefined;
 
   const dimension = colorByCategory?.dimension;
   const categoryColorMapping = colorByCategory?.categoricalColors || {};
@@ -143,6 +167,7 @@ export default function transformProps(chartProps: ChartProps) {
   let metricDomain: [number, number] | null = null;
   let metricColorScale: ((v: number) => number[]) | null = null;
   let metricLegend: MetricLegend | null = null;
+  let resolvedMetric: ColorByValueConfig | undefined;
 
   if (colorByValue && rawData.length > 0) {
     const {
@@ -155,20 +180,19 @@ export default function transformProps(chartProps: ChartProps) {
     } = colorByValue;
 
     if (valueColumn) {
-      const values = rawData
-        .map(d => {
-          const value = d[valueColumn];
-          return value !== null &&
-            value !== undefined &&
-            !Number.isNaN(Number(value))
-            ? Number(value)
-            : null;
-        })
-        .filter((v): v is number => v !== null);
+      const bounds = resolveNumericBounds(
+        rawData,
+        valueColumn,
+        lowerBound,
+        upperBound,
+        'colorByValue',
+      );
 
-      if (values.length > 0) {
-        const lower = lowerBound ?? Math.min(...values);
-        const upper = upperBound ?? Math.max(...values);
+      if (bounds) {
+        const { sortedValues, lower, upper, usesPercentBounds } = bounds;
+        const resolvedBreakpoints = (breakpoints ?? []).map(
+          (bp: number | string) => resolvePercentOrNumber(bp, sortedValues, 0),
+        );
         metricDomain = [lower, upper];
 
         const start: RGBAColor = hasValidFill(startColor)
@@ -183,24 +207,88 @@ export default function transformProps(chartProps: ChartProps) {
           valueColumn,
           startColor: start,
           endColor: end,
-          breakpoints,
+          breakpoints: resolvedBreakpoints,
           lowerBound: lower,
           upperBound: upper,
         };
+        resolvedMetric = spec;
 
         metricColorScale = computeMetricColorScaleUnified(spec, [lower, upper]);
+
+        // When there's only one value (lower === upper), there's no gradient
+        // to display — use the same color for both ends of the legend.
+        const noGradient = lower === upper;
 
         metricLegend = {
           min: lower,
           max: upper,
           startColor: start,
-          endColor: end,
-          legendName: valueColumn,
+          endColor: noGradient ? start : end,
+          legendName: legend?.title || valueColumn,
+          usesPercentBounds,
         };
       }
     } else {
       console.warn('Metric entry missing valueName:', colorByValue);
     }
+  }
+
+  // --- Size scale & legend (for dynamic pointSize) ---
+  let sizeScale: ((val: number) => number) | null = null;
+  let sizeLegend: SizeLegend | null = null;
+
+  if (pointSizeConfigDynamic?.valueColumn && rawData.length > 0) {
+    const {
+      valueColumn: sizeValueColumn,
+      startSize = 4,
+      endSize = 30,
+      lowerBound,
+      upperBound,
+    } = pointSizeConfigDynamic;
+
+    const bounds = resolveNumericBounds(
+      rawData,
+      sizeValueColumn,
+      lowerBound,
+      upperBound,
+      'pointSize',
+    );
+
+    if (bounds) {
+      const { lower, upper, usesPercentBounds } = bounds;
+      sizeScale = computeSizeScale(
+        {
+          valueColumn: sizeValueColumn,
+          startSize,
+          endSize,
+          lowerBound: lower,
+          upperBound: upper,
+        },
+        [lower, upper],
+      );
+      sizeLegend = {
+        lower,
+        upper,
+        startSize,
+        endSize,
+        valueColumn: sizeValueColumn,
+        legendTitle: legend?.title,
+        usesPercentBounds,
+      };
+    }
+  }
+
+  // --- Combined metric+size validation ---
+  const isCombinedMetricSize: boolean =
+    !!metricLegend &&
+    !!sizeLegend &&
+    colorByValue?.valueColumn === pointSizeConfigDynamic?.valueColumn;
+
+  if (metricLegend && sizeLegend && !isCombinedMetricSize) {
+    console.warn(
+      `[GeoSet Legend] colorByValue.valueColumn ("${colorByValue?.valueColumn}") != ` +
+        `pointSize.valueColumn ("${pointSizeConfigDynamic?.valueColumn}"). Rendering legends separately.`,
+    );
   }
 
   // --- Parse raw features with caching ---
@@ -330,7 +418,7 @@ export default function transformProps(chartProps: ChartProps) {
 
   // METRIC COLORING MODE (overrides category)
   if (useMetricColoring && features.length > 0) {
-    const { valueColumn } = colorByValue;
+    const { valueColumn } = colorByValue!;
 
     features = features.map(feature => {
       const featureProperties = { ...feature.properties };
@@ -396,6 +484,16 @@ export default function transformProps(chartProps: ChartProps) {
     });
   }
 
+  // --- Stamp sizeValue on each feature for dynamic point sizing ---
+  if (sizeScale && pointSizeConfigDynamic) {
+    const { valueColumn: sizeValueColumn } = pointSizeConfigDynamic;
+    features = features.map(f => {
+      const val = f.properties?.[sizeValueColumn];
+      if (val == null) return f;
+      return { ...f, sizeValue: sizeScale(Number(val)) };
+    });
+  }
+
   // Mapbox API key placeholder - actual key is fetched in the component via useEffect
   const mapboxApiKey =
     geojsonPayload.data?.mapboxApiKey || process.env.MAPBOX_API_KEY || '';
@@ -434,7 +532,7 @@ export default function transformProps(chartProps: ChartProps) {
     limitReached,
     visualConfig: {
       dimension,
-      metric: colorByValue,
+      metric: resolvedMetric,
       filled,
       stroked,
       extruded,
@@ -449,6 +547,9 @@ export default function transformProps(chartProps: ChartProps) {
       metricDomain,
       metricColorScale,
       metricLegend,
+      sizeLegend,
+      isCombinedMetricSize,
+      textOverlayStyle,
     },
   };
 }

@@ -37,53 +37,71 @@ import {
 } from '../DeckGLContainer';
 import {
   getLayer as getGeoSetMapLayer,
-  getLayerState as layerStateGenerator,
+  getLayerStates as layerStatesGenerator,
 } from '../layers/GeoSetLayer/GeoSetLayer';
 import { calculateAutozoomViewport, Viewport } from '../utils/fitViewport';
 import { TooltipProps } from '../components/Tooltip';
 import { LayerState } from '../types';
 import buildGeoSetMapLayerQuery from '../buildQuery';
 import transformGeoSetMapLayerProps from '../transformProps';
-import MultiLegend, { LegendGroup } from '../components/MultiLegend';
+import MultiLegend from '../components/MultiLegend';
+import type { CategoryEntry, LegendEntry } from '../types';
+import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
-import { getGeometryType } from '../utils';
+import { getGeometryType } from '../utils/dataProcessing';
 import { fetchMapboxApiKey, getCachedMapboxApiKey } from '../utils/mapboxApi';
 import { multiChartMigration } from '../utils/migrationApi';
 import ClickPopupBox, { ClickedFeatureInfo } from '../components/ClickPopupBox';
+import { setLiveViewport } from '../utils/liveViewportStore';
+import {
+  DeckSliceConfig,
+  resolveLayerAutozoom,
+  normalizeDeckSlices,
+  loadLayersOrchestrated,
+} from './multiUtils';
+import { applyCategoryEnabledState } from '../utils/legendHelpers';
+
 // Utility to convert snake_case or camelCase to Title Case
 const toTitleCase = (str: string) =>
   str
     .replace(/_/g, ' ')
     .replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
 
-// Per-layer config
-interface DeckSliceConfig {
-  sliceId: number;
-  autozoom: boolean;
-  legendCollapsed: boolean;
-  initiallyHidden: boolean;
-}
+/** Build a placeholder legend entry from slice metadata (before layer data is fetched). */
+const buildStubLegendEntry = (
+  subslice: JsonObject,
+  sliceConfig: DeckSliceConfig | undefined,
+): LegendEntry => {
+  const geojsonConfig = subslice.form_data?.geojsonConfig;
+  let icon: string | undefined;
+  let legendName: string = subslice.slice_name as string;
+  let legendTitle: string | null = null;
 
-// Normalize deck slices (handle legacy number[] format)
-const normalizeDeckSlices = (
-  deckSlices: (DeckSliceConfig | number)[] | undefined,
-): DeckSliceConfig[] =>
-  deckSlices?.map(item =>
-    typeof item === 'number'
-      ? {
-          sliceId: item,
-          autozoom: true,
-          legendCollapsed: false,
-          initiallyHidden: false,
-        }
-      : {
-          sliceId: item.sliceId,
-          autozoom: item.autozoom ?? true,
-          legendCollapsed: item.legendCollapsed ?? false,
-          initiallyHidden: item.initiallyHidden ?? false,
-        },
-  ) ?? [];
+  try {
+    const params = JSON.parse(geojsonConfig || '{}');
+    icon = params.globalColoring?.pointType;
+    if (params.legend?.name) {
+      legendName = toTitleCase(params.legend.name);
+    }
+    if (params.legend?.title) {
+      legendTitle = toTitleCase(params.legend.title);
+    }
+  } catch {
+    // Fall back to slice_name
+  }
+
+  return {
+    legendName: legendTitle || legendName,
+    legendParentTitle: legendTitle || (subslice.slice_name as string),
+    sliceName: subslice.slice_name as string,
+    icon,
+    geometryType: subslice.form_data?.geoJsonLayer,
+    type: 'simple',
+    initialCollapsed: sliceConfig?.legendCollapsed ?? false,
+    loading: true,
+  };
+};
 
 export type DeckMultiProps = {
   formData: QueryFormData;
@@ -102,8 +120,8 @@ export type DeckMultiProps = {
 
 type SubsliceLayerEntry = {
   sliceId: number;
-  layerState: LayerState;
-  legendGroup: LegendGroup;
+  layerStates: LayerState[];
+  legendEntry: LegendEntry;
   features: JsonObject[];
   autozoom: boolean;
   // Store data needed to rebuild layer when category visibility changes
@@ -117,6 +135,7 @@ type SubsliceLayerEntry = {
   };
   zoomSliderOptions: { minZoom: number; maxZoom: number };
   initiallyHidden: boolean; // Whether this layer starts hidden
+  lazyLoading: boolean; // Whether this layer is configured for lazy loading
 };
 
 interface ClickedFeatureWithColumns extends ClickedFeatureInfo {
@@ -127,6 +146,8 @@ const DeckMulti = (props: DeckMultiProps) => {
   const containerRef = useRef<DeckGLContainerHandle>(null);
   // Ref to track measure state for use in callbacks without creating dependencies
   const measureActiveRef = useRef(false);
+  // Generation counter to cancel stale lazy-loading chains
+  const loadGenerationRef = useRef(0);
   // Store initial autozoom viewport to prevent reset on category toggle
   const initialAutozoomViewportRef = useRef<Viewport | null>(null);
 
@@ -197,6 +218,21 @@ const DeckMulti = (props: DeckMultiProps) => {
     [props.formData.deckSlices],
   );
 
+  // Build stub legend entries from slice metadata (shown while layer data loads)
+  const pendingLegends: Record<string, LegendEntry> = useMemo(() => {
+    if (!slicesData?.length) return {};
+    const configById = new Map(normalizedDeckSlices.map(c => [c.sliceId, c]));
+    return Object.fromEntries(
+      slicesData.map((subslice: JsonObject) => [
+        String(subslice.slice_id),
+        buildStubLegendEntry(
+          subslice,
+          configById.get(subslice.slice_id as number),
+        ),
+      ]),
+    );
+  }, [slicesData, normalizedDeckSlices]);
+
   // Fetch slice metadata when deckSlices changes and payload doesn't have slices
   useEffect(() => {
     const { payload } = props;
@@ -238,254 +274,280 @@ const DeckMulti = (props: DeckMultiProps) => {
     });
   }, [normalizedDeckSlices, props, props.payload.data.slices]);
 
+  // Load a single subslice and return its layer entry
+  const loadSingleLayer = useCallback(
+    (
+      formData: QueryFormData,
+      subslice: JsonObject,
+      sliceConfig: DeckSliceConfig | undefined,
+    ): Promise<SubsliceLayerEntry | null> => {
+      const sliceAutozoom = resolveLayerAutozoom(sliceConfig);
+      const sliceLegendCollapsed = sliceConfig?.legendCollapsed ?? false;
+      const sliceInitiallyHidden = sliceConfig?.initiallyHidden ?? false;
+      const sliceLazyLoading = sliceConfig?.lazyLoading ?? false;
+      let copyFormData = {
+        ...subslice.form_data,
+      };
+      if (formData.extraFormData) {
+        copyFormData = {
+          ...copyFormData,
+          extra_form_data: formData.extraFormData,
+        };
+      }
+
+      return (
+        multiChartMigration(copyFormData)
+          .then(migratedFormData => {
+            const subsliceCopy = {
+              ...subslice,
+              form_data: migratedFormData as QueryFormData,
+            };
+
+            const queryContext = buildGeoSetMapLayerQuery(
+              subsliceCopy.form_data,
+            );
+
+            return SupersetClient.post({
+              endpoint: '/api/v1/chart/data',
+              jsonPayload: { ...queryContext },
+            }).then(({ json }: { json: JsonObject }) => {
+              const result = json?.result?.[0] || {};
+              const payload = { data: result.data || [] };
+
+              const chartProps = {
+                height: 400,
+                width: 600,
+                formData: subsliceCopy.form_data,
+                queriesData: [{ data: payload?.data || [] }],
+                hooks: {
+                  onAddFilter: props.onAddFilter,
+                  setControlValue: () => {},
+                },
+              } as any;
+
+              const transformedProps = transformGeoSetMapLayerProps(chartProps);
+
+              const sliceHoverColumnNames = transformedProps.hoverColumnNames;
+              const sliceFeatureInfoColumnNames =
+                transformedProps.featureInfoColumnNames;
+              const newLayer = getGeoSetMapLayer(
+                transformedProps.formData as any,
+                transformedProps.payload,
+                props.onAddFilter,
+                setTooltip,
+                transformedProps.categories || {},
+                transformedProps.visualConfig,
+                sliceHoverColumnNames,
+                (info: any) =>
+                  handleFeatureClick(info, sliceFeatureInfoColumnNames),
+              );
+
+              if (!newLayer) {
+                return null;
+              }
+
+              const payloadData = payload?.data || [];
+              const geometryType = getGeometryType(payloadData[0]?.geojson);
+              let transformPropsGeojsonLayer =
+                transformedProps.formData.geoJsonLayer;
+
+              if (
+                transformPropsGeojsonLayer !== 'TextOverlay' &&
+                transformPropsGeojsonLayer !== geometryType
+              ) {
+                transformPropsGeojsonLayer = geometryType;
+              }
+              const transformedPropsConfig =
+                transformedProps.formData.geojsonConfig;
+              let icon;
+              let params;
+              const legendName = (() => {
+                try {
+                  params = JSON.parse(transformedPropsConfig || '{}');
+                  icon = params.globalColoring.pointType;
+                  if (params.legend) {
+                    const formattedLegendName = toTitleCase(
+                      params.legend?.name,
+                    );
+                    return formattedLegendName || subslice.slice_name;
+                  }
+                  return subslice.slice_name;
+                } catch (e) {
+                  return subslice.slice_name;
+                }
+              })();
+
+              const { categories, visualConfig } = transformedProps;
+              const {
+                dimension,
+                metricLegend,
+                sizeLegend,
+                isCombinedMetricSize,
+              } = visualConfig;
+              const hasCategories =
+                dimension && categories && Object.keys(categories).length > 0;
+              const hasMetric =
+                metricLegend !== null && metricLegend !== undefined;
+
+              const legendTitle = params?.legend?.title
+                ? toTitleCase(params.legend.title)
+                : null;
+              const legendNameFromJson = params?.legend?.name
+                ? toTitleCase(params.legend.name)
+                : null;
+
+              const buildSizeEntry = () =>
+                sizeLegend ? { ...sizeLegend } : undefined;
+
+              let legendEntry: LegendEntry;
+
+              if (hasMetric) {
+                const ml = metricLegend as MetricLegend;
+                const isCombined = isCombinedMetricSize === true;
+                legendEntry = {
+                  legendName: legendTitle || legendName,
+                  sliceName: subslice.slice_name,
+                  icon,
+                  geometryType: transformPropsGeojsonLayer,
+                  type: 'metric',
+                  metric: {
+                    lower: ml.min,
+                    upper: ml.max,
+                    startColor: ml.startColor,
+                    endColor: ml.endColor,
+                    usesPercentBounds: ml.usesPercentBounds,
+                  },
+                  sizeEntry: isCombined ? buildSizeEntry() : undefined,
+                  isCombinedMetricSize: isCombined,
+                  initialCollapsed: sliceLegendCollapsed,
+                };
+              } else if (hasCategories) {
+                const categoryEntries = Object.entries(
+                  categories as Record<string, CategoryState>,
+                )
+                  .filter(([_, catState]) => catState.enabled !== false)
+                  .map(([label, catState]) => ({
+                    label: catState.legend_name || label,
+                    fillColor: catState.color,
+                    strokeColor: visualConfig.strokeColor as RGBAColor,
+                  }));
+
+                legendEntry = {
+                  legendName: legendTitle || legendName,
+                  sliceName: subslice.slice_name,
+                  icon,
+                  geometryType: transformPropsGeojsonLayer,
+                  type: 'categorical',
+                  categories: categoryEntries,
+                  sizeEntry: buildSizeEntry(),
+                  initialCollapsed: sliceLegendCollapsed,
+                };
+              } else {
+                const fillColor = visualConfig.fillColor as RGBAColor;
+                const strokeColor = visualConfig.strokeColor as RGBAColor;
+
+                legendEntry = {
+                  legendName: legendNameFromJson || legendName,
+                  legendParentTitle: legendTitle || subslice.slice_name,
+                  sliceName: subslice.slice_name,
+                  icon,
+                  geometryType: transformPropsGeojsonLayer,
+                  type: 'simple',
+                  simpleStyle: {
+                    fillColor,
+                    strokeColor,
+                  },
+                  sizeEntry: buildSizeEntry(),
+                  initialCollapsed: sliceLegendCollapsed,
+                };
+              }
+
+              const zoomSlider = subsliceCopy.form_data.minMaxZoomSlider || [
+                0, 22,
+              ];
+              const newLayerStateOptions = {
+                minZoom: zoomSlider[0],
+                maxZoom: zoomSlider[1],
+              };
+
+              const newLayerStates = layerStatesGenerator(
+                newLayer,
+                newLayerStateOptions,
+              );
+
+              if (!newLayerStates.length) {
+                return null;
+              }
+
+              const layerFeatures: JsonObject[] =
+                transformedProps.payload?.data?.features || [];
+
+              return {
+                sliceId: subslice.slice_id as number,
+                layerStates: newLayerStates,
+                legendEntry,
+                features: layerFeatures,
+                autozoom: sliceAutozoom,
+                transformedProps: {
+                  formData: transformedProps.formData,
+                  payload: transformedProps.payload,
+                  categories: transformedProps.categories || {},
+                  visualConfig: transformedProps.visualConfig,
+                  hoverColumnNames: transformedProps.hoverColumnNames,
+                  featureInfoColumnNames:
+                    transformedProps.featureInfoColumnNames || [],
+                },
+                zoomSliderOptions: newLayerStateOptions,
+                initiallyHidden: sliceInitiallyHidden,
+                lazyLoading: sliceLazyLoading,
+              };
+            });
+          })
+          // IMPORTANT: This .catch is load-bearing. It ensures a single layer
+          // failure resolves to null instead of rejecting, which would abort the
+          // entire lazy-loading reduce chain or the eager Promise.all batch.
+          .catch(err => {
+            // eslint-disable-next-line no-console
+            console.error(
+              `[GeoSet] Failed to load layer for slice ${subslice.slice_id}:`,
+              err,
+            );
+            return null;
+          })
+      );
+    },
+    [props.onAddFilter, setTooltip, handleFeatureClick],
+  );
+
   const loadLayers = useCallback(
     (
       formData: QueryFormData,
       slices: JsonObject[],
       deckSlicesConfig: DeckSliceConfig[],
     ) => {
+      // Bump generation so any in-flight lazy chain from a prior call is ignored
+      // eslint-disable-next-line no-plusplus
+      const generation = ++loadGenerationRef.current;
       setSubSlicesLayers([]);
 
-      if (!slices || slices.length === 0) {
-        return;
-      }
-
-      Promise.all(
-        slices.map((subslice: { slice_id: number } & JsonObject) => {
-          // Get layer settings from the config
-          const sliceConfig = deckSlicesConfig.find(
-            c => c.sliceId === subslice.slice_id,
-          );
-          const sliceAutozoom = sliceConfig?.autozoom ?? true;
-          const sliceLegendCollapsed = sliceConfig?.legendCollapsed ?? false;
-          const sliceInitiallyHidden = sliceConfig?.initiallyHidden ?? false;
-          let copyFormData = {
-            ...subslice.form_data,
-          };
-          if (formData.extraFormData) {
-            copyFormData = {
-              ...copyFormData,
-              extra_form_data: formData.extraFormData,
-            };
-          }
-
-          // Migrate form_data if needed, then build query and fetch data
-          return multiChartMigration(copyFormData)
-            .then(migratedFormData => {
-              const subsliceCopy = {
-                ...subslice,
-                form_data: migratedFormData as QueryFormData,
-              };
-
-              const queryContext = buildGeoSetMapLayerQuery(
-                subsliceCopy.form_data,
-              );
-
-              return SupersetClient.post({
-                endpoint: '/api/v1/chart/data',
-                jsonPayload: { ...queryContext },
-              }).then(({ json }: { json: JsonObject }) => {
-                // Transform API response to match expected format
-                const result = json?.result?.[0] || {};
-                const payload = { data: result.data || [] };
-
-                // Build ChartProps-like object for transformProps
-                const chartProps = {
-                  height: 400,
-                  width: 600,
-                  formData: subsliceCopy.form_data,
-                  queriesData: [{ data: payload?.data || [] }],
-                  hooks: {
-                    onAddFilter: props.onAddFilter,
-                    setControlValue: () => {},
-                  },
-                } as any;
-
-                // Use transformProps to process data (same logic as standalone chart)
-                const transformedProps =
-                  transformGeoSetMapLayerProps(chartProps);
-
-                const sliceHoverColumnNames = transformedProps.hoverColumnNames;
-                const sliceFeatureInfoColumnNames =
-                  transformedProps.featureInfoColumnNames;
-                const newLayer = getGeoSetMapLayer(
-                  transformedProps.formData as any,
-                  transformedProps.payload,
-                  props.onAddFilter,
-                  setTooltip,
-                  transformedProps.categories || {},
-                  transformedProps.visualConfig,
-                  sliceHoverColumnNames,
-                  (info: any) =>
-                    handleFeatureClick(info, sliceFeatureInfoColumnNames),
-                );
-
-                if (!newLayer) {
-                  return null;
-                }
-                // Extract legend name from form_data.params.geojsonConfig or fall back to slice name
-                const payloadData = payload?.data || [];
-                const geometryType = getGeometryType(payloadData[0]?.geojson);
-                let transformPropsGeojsonLayer =
-                  transformedProps.formData.geoJsonLayer;
-
-                if (transformPropsGeojsonLayer !== geometryType) {
-                  transformPropsGeojsonLayer = geometryType;
-                }
-                const transformedPropsConfig =
-                  transformedProps.formData.geojsonConfig;
-                let icon; // need to get icon from json payload
-                let params;
-                const legendName = (() => {
-                  try {
-                    params = JSON.parse(transformedPropsConfig || '{}');
-                    icon = params.globalColoring.pointType;
-                    if (params.legend) {
-                      const formattedLegendName = toTitleCase(
-                        params.legend?.name,
-                      );
-                      return formattedLegendName || subslice.slice_name;
-                    }
-                    return subslice.slice_name;
-                  } catch (e) {
-                    return subslice.slice_name;
-                  }
-                })();
-
-                // Build the LegendGroup based on what coloring mode is active
-                const { categories, visualConfig } = transformedProps;
-                const { dimension, metricLegend } = visualConfig;
-                const hasCategories =
-                  dimension && categories && Object.keys(categories).length > 0;
-                const hasMetric =
-                  metricLegend !== null && metricLegend !== undefined;
-
-                // Get legend config from JSON
-                // For categorical: legend.title is the header, legend.name is null
-                // For simple/base: legend.title is the header, legend.name is the expanded content
-                const legendTitle = params?.legend?.title
-                  ? toTitleCase(params.legend.title)
-                  : null;
-                const legendNameFromJson = params?.legend?.name
-                  ? toTitleCase(params.legend.name)
-                  : null;
-
-                let legendGroup: LegendGroup;
-
-                if (hasMetric) {
-                  // Metric-based coloring (gradient)
-                  // Use legend.title from JSON for legend header
-                  const ml = metricLegend as MetricLegend;
-                  legendGroup = {
-                    legendName: legendTitle || legendName,
-                    sliceName: subslice.slice_name,
-                    icon,
-                    geometryType: transformPropsGeojsonLayer,
-                    type: 'metric',
-                    metric: {
-                      lower: ml.min,
-                      upper: ml.max,
-                      startColor: ml.startColor,
-                      endColor: ml.endColor,
-                    },
-                    initialCollapsed: sliceLegendCollapsed,
-                  };
-                } else if (hasCategories) {
-                  // Category-based coloring
-                  // Use legend.title from JSON for legend header (legend.name is null)
-                  const categoryEntries = Object.entries(
-                    categories as Record<string, CategoryState>,
-                  )
-                    .filter(([_, catState]) => catState.enabled !== false)
-                    .map(([label, catState]) => ({
-                      label: catState.legend_name || label,
-                      fillColor: catState.color,
-                      strokeColor: visualConfig.strokeColor as RGBAColor,
-                    }));
-
-                  legendGroup = {
-                    legendName: legendTitle || legendName,
-                    sliceName: subslice.slice_name,
-                    icon,
-                    geometryType: transformPropsGeojsonLayer,
-                    type: 'categorical',
-                    categories: categoryEntries,
-                    initialCollapsed: sliceLegendCollapsed,
-                  };
-                } else {
-                  // Simple/static coloring (base charts - no categories or metrics)
-                  // legendParentTitle = legend.title (shown as header)
-                  // legendName = legend.name (shown in expanded content)
-                  const fillColor = visualConfig.fillColor as RGBAColor;
-                  const strokeColor = visualConfig.strokeColor as RGBAColor;
-
-                  legendGroup = {
-                    legendName: legendNameFromJson || legendName,
-                    legendParentTitle: legendTitle || subslice.slice_name,
-                    sliceName: subslice.slice_name,
-                    icon,
-                    geometryType: transformPropsGeojsonLayer,
-                    type: 'simple',
-                    simpleStyle: {
-                      fillColor,
-                      strokeColor,
-                    },
-                    initialCollapsed: sliceLegendCollapsed,
-                  };
-                }
-
-                const zoomSlider = subsliceCopy.form_data.minMaxZoomSlider || [
-                  0, 22,
-                ];
-                const newLayerStateOptions = {
-                  minZoom: zoomSlider[0],
-                  maxZoom: zoomSlider[1],
-                };
-
-                const newLayerState = layerStateGenerator(
-                  newLayer,
-                  newLayerStateOptions,
-                );
-
-                if (!newLayerState) {
-                  return null;
-                }
-
-                // Store layer with its features for autozoom calculation
-                const layerFeatures: JsonObject[] =
-                  transformedProps.payload?.data?.features || [];
-
-                return {
-                  sliceId: subsliceCopy.slice_id,
-                  layerState: newLayerState,
-                  legendGroup,
-                  features: layerFeatures,
-                  autozoom: sliceAutozoom,
-                  // Store data needed to rebuild layer when category visibility changes
-                  transformedProps: {
-                    formData: transformedProps.formData,
-                    payload: transformedProps.payload,
-                    categories: transformedProps.categories || {},
-                    visualConfig: transformedProps.visualConfig,
-                    hoverColumnNames: transformedProps.hoverColumnNames,
-                    featureInfoColumnNames:
-                      transformedProps.featureInfoColumnNames || [],
-                  },
-                  zoomSliderOptions: newLayerStateOptions,
-                  initiallyHidden: sliceInitiallyHidden,
-                };
-              });
-            })
-            .catch(() => null);
-        }),
-      ).then(results => {
-        const validLayers = results.filter(
-          (entry): entry is SubsliceLayerEntry => entry !== null,
-        );
-        setSubSlicesLayers(validLayers);
+      loadLayersOrchestrated<SubsliceLayerEntry>(
+        slices as { slice_id: number }[],
+        deckSlicesConfig,
+        {
+          loadFn: (subslice, config) =>
+            loadSingleLayer(formData, subslice, config),
+          onAutozoomComplete: autozoomLayers =>
+            setSubSlicesLayers(autozoomLayers),
+          onEagerAppend: layer => setSubSlicesLayers(prev => [...prev, layer]),
+          onLazyAppend: layer => setSubSlicesLayers(prev => [...prev, layer]),
+          isStale: () => loadGenerationRef.current !== generation,
+        },
+      ).catch(err => {
+        // eslint-disable-next-line no-console
+        console.error('[GeoSet] Layer orchestration failed:', err);
       });
     },
-    [props.onAddFilter, setTooltip, handleFeatureClick],
+    [loadSingleLayer],
   );
 
   const prevSlicesData = usePrevious(slicesData);
@@ -502,101 +564,124 @@ const DeckMulti = (props: DeckMultiProps) => {
     normalizedDeckSlices,
   ]);
 
-  // Sync autozoom settings when they change (without reloading layers)
+  // Sync autozoom and lazyLoading settings when they change (without reloading layers)
   useEffect(() => {
     setSubSlicesLayers(currentLayers => {
       if (!currentLayers.length) return currentLayers;
 
-      const autozoomMap = new Map(
-        normalizedDeckSlices.map(c => [c.sliceId, c.autozoom]),
-      );
+      const configMap = new Map(normalizedDeckSlices.map(c => [c.sliceId, c]));
 
-      const needsUpdate = currentLayers.some(
-        layer => layer.autozoom !== (autozoomMap.get(layer.sliceId) ?? true),
-      );
+      const needsUpdate = currentLayers.some(layer => {
+        const config = configMap.get(layer.sliceId);
+        const expectedAutozoom = resolveLayerAutozoom(config);
+        return (
+          layer.autozoom !== expectedAutozoom ||
+          layer.lazyLoading !== (config?.lazyLoading ?? false)
+        );
+      });
 
       if (!needsUpdate) return currentLayers;
 
-      return currentLayers.map(layer => ({
-        ...layer,
-        autozoom: autozoomMap.get(layer.sliceId) ?? true,
-      }));
+      return currentLayers.map(layer => {
+        const config = configMap.get(layer.sliceId);
+        return {
+          ...layer,
+          autozoom: resolveLayerAutozoom(config),
+          lazyLoading: config?.lazyLoading ?? false,
+        };
+      });
     });
   }, [normalizedDeckSlices]);
 
-  // Initialize layer visibility based on initiallyHidden setting
-  // Runs once when layers are first loaded
-  const prevSubSlicesLayersLength = usePrevious(subSlicesLayers.length);
+  // Initialize layer visibility based on initiallyHidden setting.
+  // Detects newly-added layers (including lazy-loaded ones) by comparing
+  // current slice IDs against the previous set, so layers arriving after
+  // the initial eager batch are also handled.
+  const currentSubSliceIds = useMemo(
+    () => new Set(subSlicesLayers.map(e => e.sliceId)),
+    [subSlicesLayers],
+  );
+  const prevSubSliceIds = usePrevious(currentSubSliceIds);
   useEffect(() => {
-    if (prevSubSlicesLayersLength === 0 && subSlicesLayers.length > 0) {
-      const hiddenLayers = subSlicesLayers.filter(e => e.initiallyHidden);
-      if (hiddenLayers.length > 0) {
-        // Hide the layers
-        setLayerVisibility(
-          Object.fromEntries(hiddenLayers.map(e => [String(e.sliceId), false])),
-        );
-        // Also turn off all categories for hidden categorical layers
-        setCategoryVisibility(
-          Object.fromEntries(
-            hiddenLayers
-              .filter(e => e.legendGroup.categories?.length)
-              .map(e => [
-                String(e.sliceId),
-                Object.fromEntries(
-                  e.legendGroup.categories!.map(c => [c.label, false]),
-                ),
-              ]),
-          ),
-        );
-      }
+    const prevIds = prevSubSliceIds ?? new Set<number>();
+    const newLayers = subSlicesLayers.filter(e => !prevIds.has(e.sliceId));
+    const hiddenNewLayers = newLayers.filter(e => e.initiallyHidden);
+
+    if (hiddenNewLayers.length > 0) {
+      setLayerVisibility(prev => ({
+        ...prev,
+        ...Object.fromEntries(
+          hiddenNewLayers.map(e => [String(e.sliceId), false]),
+        ),
+      }));
+      setCategoryVisibility(prev => ({
+        ...prev,
+        ...Object.fromEntries(
+          hiddenNewLayers
+            .filter(e => e.legendEntry.categories?.length)
+            .map(e => [
+              String(e.sliceId),
+              Object.fromEntries(
+                e.legendEntry.categories!.map(c => [c.label, false]),
+              ),
+            ]),
+        ),
+      }));
     }
-  }, [subSlicesLayers, prevSubSlicesLayersLength]);
+  }, [subSlicesLayers, prevSubSliceIds]);
 
   const { height, width } = props;
 
-  // Toggle layer visibility callback
+  // Toggle layer visibility callback (supports legend groups with multiple sliceIds)
   const handleToggleLayerVisibility = useCallback(
-    (sliceId: string) => {
-      const entry = subSlicesLayers.find(e => String(e.sliceId) === sliceId);
-      const isCurrentlyVisible = layerVisibility[sliceId] !== false;
+    (sliceIds: string[]) => {
+      // If ANY are currently visible → turn all OFF; if NONE visible → turn all ON
+      const isGroupVisible = sliceIds.some(id => layerVisibility[id] !== false);
 
-      const isCategoricalLayer =
-        entry?.legendGroup.type === 'categorical' &&
-        entry.legendGroup.categories;
+      const buildCategoryMap = (
+        categories: CategoryEntry[],
+        value: boolean,
+      ): Record<string, boolean> =>
+        Object.fromEntries(categories.map(c => [c.label, value]));
 
-      // If turning OFF the layer, also turn off all category checkboxes
-      if (isCurrentlyVisible && isCategoricalLayer) {
-        const allCategoriesOff: Record<string, boolean> = {};
-        entry.legendGroup.categories!.forEach(cat => {
-          allCategoriesOff[cat.label] = false;
-        });
-        setCategoryVisibility(prev => ({
-          ...prev,
-          [sliceId]: allCategoriesOff,
-        }));
-      } else if (!isCurrentlyVisible && isCategoricalLayer) {
-        // If trying to turn ON, check if any category is enabled
-        // If all categories were explicitly disabled, re-enable them all
-        const sliceCatVisibility = categoryVisibility[sliceId] || {};
-        const anyEnabled = entry.legendGroup.categories!.some(
-          cat => sliceCatVisibility[cat.label] !== false,
-        );
-        // If all categories are off, re-enable them all when turning layer on
-        if (!anyEnabled && Object.keys(sliceCatVisibility).length > 0) {
-          const allCategoriesOn: Record<string, boolean> = {};
-          entry.legendGroup.categories!.forEach(cat => {
-            allCategoriesOn[cat.label] = true;
-          });
-          setCategoryVisibility(prev => ({
-            ...prev,
-            [sliceId]: allCategoriesOn,
-          }));
+      const catUpdates: Record<string, Record<string, boolean>> = {};
+
+      sliceIds.forEach(sliceId => {
+        const entry = subSlicesLayers.find(e => String(e.sliceId) === sliceId);
+        const isCategoricalLayer =
+          entry?.legendEntry.type === 'categorical' &&
+          entry.legendEntry.categories;
+
+        if (isCategoricalLayer) {
+          if (isGroupVisible) {
+            // Turning OFF — disable all categories
+            catUpdates[sliceId] = buildCategoryMap(
+              entry.legendEntry.categories!,
+              false,
+            );
+          } else {
+            // Turning ON — re-enable categories if all were off
+            const sliceCatVisibility = categoryVisibility[sliceId] || {};
+            const anyEnabled = entry.legendEntry.categories!.some(
+              cat => sliceCatVisibility[cat.label] !== false,
+            );
+            if (!anyEnabled && Object.keys(sliceCatVisibility).length > 0) {
+              catUpdates[sliceId] = buildCategoryMap(
+                entry.legendEntry.categories!,
+                true,
+              );
+            }
+          }
         }
+      });
+
+      if (Object.keys(catUpdates).length > 0) {
+        setCategoryVisibility(prev => ({ ...prev, ...catUpdates }));
       }
 
       setLayerVisibility(prev => ({
         ...prev,
-        [sliceId]: !isCurrentlyVisible,
+        ...Object.fromEntries(sliceIds.map(id => [id, !isGroupVisible])),
       }));
     },
     [subSlicesLayers, categoryVisibility, layerVisibility],
@@ -641,7 +726,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         }
 
         // Skip if not a categorical layer
-        if (entry.legendGroup.type !== 'categorical') {
+        if (entry.legendEntry.type !== 'categorical') {
           return entry;
         }
 
@@ -678,33 +763,31 @@ const DeckMulti = (props: DeckMultiProps) => {
           return entry;
         }
 
-        const newLayerState = layerStateGenerator(
+        const newLayerStates = layerStatesGenerator(
           newLayer,
           entry.zoomSliderOptions,
         );
-        if (!newLayerState) {
+        if (!newLayerStates.length) {
           return entry;
         }
 
         anyChanged = true;
 
-        // Update legendGroup categories with enabled state
-        const updatedLegendCategories = entry.legendGroup.categories?.map(
-          cat => ({
-            ...cat,
-            enabled: sliceCatVisibility[cat.label] !== false,
-          }),
+        // Update legendEntry categories with enabled state
+        const updatedLegendCategories = applyCategoryEnabledState(
+          entry.legendEntry.categories,
+          sliceCatVisibility,
         );
 
         return {
           ...entry,
-          layerState: newLayerState,
+          layerStates: newLayerStates,
           transformedProps: {
             ...entry.transformedProps,
             categories: updatedCategories,
           },
-          legendGroup: {
-            ...entry.legendGroup,
+          legendEntry: {
+            ...entry.legendEntry,
             categories: updatedLegendCategories,
           },
         };
@@ -723,7 +806,7 @@ const DeckMulti = (props: DeckMultiProps) => {
       const updates: Record<string, boolean> = {};
 
       subSlicesLayers.forEach(entry => {
-        const { type, categories } = entry.legendGroup;
+        const { type, categories } = entry.legendEntry;
 
         // Only apply to categorical layers
         if (type !== 'categorical' || !categories) {
@@ -769,49 +852,60 @@ const DeckMulti = (props: DeckMultiProps) => {
     );
   }, [subSlicesLayers, normalizedDeckSlices]);
 
-  // Set layer visibility via options.userVisible (preserves icon atlas for faster toggle)
-  const layerStatesWithVisibility = sortedLayers.map(entry => {
+  // Mark hidden layers with userVisible: false so deck.gl keeps them alive
+  // but skips rendering. This allows instant toggle-back without reinitializing.
+  // flatMap because polygon layers produce multiple LayerStates (fill + stroke)
+  const layerStatesWithVisibility = sortedLayers.flatMap(entry => {
     const isVisible = layerVisibility[String(entry.sliceId)] !== false;
-    return {
-      ...entry.layerState,
+    return entry.layerStates.map(ls => ({
+      ...ls,
       options: {
-        ...entry.layerState.options,
+        ...ls.options,
         userVisible: isVisible,
       },
-    };
+    }));
   });
 
-  // Build legendsBySlice for MultiLegend component, with category enabled state applied
-  const legendsBySlice: Record<string, LegendGroup> = useMemo(
-    () =>
-      Object.fromEntries(
-        sortedLayers.map(entry => {
-          const sliceId = String(entry.sliceId);
-          const group = entry.legendGroup;
+  // Build legendsBySlice for MultiLegend component, with category enabled state applied.
+  // Merges loaded entries with stub entries so the legend shows all layers immediately.
+  const legendsBySlice: Record<string, LegendEntry> = useMemo(() => {
+    const loadedById = new Map<string, LegendEntry>();
+    sortedLayers.forEach(entry => {
+      const sliceId = String(entry.sliceId);
+      const { legendEntry } = entry;
+      if (!legendEntry.categories) {
+        loadedById.set(sliceId, legendEntry);
+      } else {
+        const sliceCatVisibility = categoryVisibility[sliceId] || {};
+        loadedById.set(sliceId, {
+          ...legendEntry,
+          categories: applyCategoryEnabledState(
+            legendEntry.categories,
+            sliceCatVisibility,
+          )!,
+        });
+      }
+    });
 
-          // If no categories, return as-is
-          if (!group.categories) {
-            return [sliceId, group];
-          }
+    // Iterate in config order (reversed to match sortedLayers convention).
+    // Loaded entries replace stubs; unloaded layers keep showing stubs.
+    const result: Record<string, LegendEntry> = {};
+    const configOrder = [...normalizedDeckSlices].reverse();
+    for (const config of configOrder) {
+      const sliceId = String(config.sliceId);
+      const loaded = loadedById.get(sliceId);
+      if (loaded) {
+        result[sliceId] = loaded;
+      } else if (pendingLegends[sliceId]) {
+        result[sliceId] = pendingLegends[sliceId];
+      }
+    }
 
-          // Apply category visibility state
-          const sliceCatVisibility = categoryVisibility[sliceId] || {};
-          const updatedCategories = group.categories.map(cat => ({
-            ...cat,
-            enabled: sliceCatVisibility[cat.label] !== false,
-          }));
+    return result;
+  }, [pendingLegends, sortedLayers, categoryVisibility, normalizedDeckSlices]);
 
-          return [
-            sliceId,
-            {
-              ...group,
-              categories: updatedCategories,
-            },
-          ];
-        }),
-      ),
-    [sortedLayers, categoryVisibility],
-  );
+  // Group legend entries that share the same display title
+  const legendGroups = useGroupedLegend(legendsBySlice);
 
   // Clear cached autozoom when static viewport is enabled so autozoom
   // recalculates fresh if the user toggles static back off
@@ -849,6 +943,18 @@ const DeckMulti = (props: DeckMultiProps) => {
     initialAutozoomViewportRef.current = calculatedViewport;
     return calculatedViewport;
   }, [sortedLayers, props.viewport, width, height, props.enableStaticViewport]);
+
+  // Write live viewport to module-level store (outside Redux) so the actual
+  // viewport control value is only changed by explicit user Save actions.
+  // ViewportControl reads the store on-demand via getLiveViewport.
+  const viewportSetControlValue = useCallback(
+    (control: string, value: JsonValue) => {
+      if (control === 'viewport') {
+        setLiveViewport(value as Viewport);
+      }
+    },
+    [],
+  );
 
   // Map control handlers - must be defined before any conditional returns
   const handleZoomIn = useCallback(() => {
@@ -954,9 +1060,19 @@ const DeckMulti = (props: DeckMultiProps) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [measureState.isActive]);
 
-  // Show loading state until slices data is fetched and layers are processed
+  // Gate map canvas rendering to prevent a viewport jump when autozoom layers
+  // load. Phase 1 loads autozoom layers first; the canvas stays hidden until
+  // they complete so the viewport is correct on first render.
+  //
+  // - If any layer has autozoom: wait for phase 1 (autozoom batch) to complete.
+  // - If no layers have autozoom: show the map as soon as metadata is fetched.
   const hasChartsToLoad = normalizedDeckSlices.length > 0;
-  const isLoading = hasChartsToLoad && subSlicesLayers.length === 0;
+  const hasAutozoomLayers = normalizedDeckSlices.some(config =>
+    resolveLayerAutozoom(config),
+  );
+  const isLoading =
+    hasChartsToLoad &&
+    (hasAutozoomLayers ? subSlicesLayers.length === 0 : slicesData === null);
 
   if (isLoading) {
     return (
@@ -985,6 +1101,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         mapboxApiAccessToken={effectiveMapboxKey || 'no-token'}
         viewport={viewport}
         initialViewport={viewport}
+        setControlValue={viewportSetControlValue}
         layerStates={layerStatesWithVisibility}
         mapStyle={mapStyle}
         height={height}
@@ -997,7 +1114,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         onEmptyClick={handleClosePopup}
       />
       <MultiLegend
-        legendsBySlice={legendsBySlice}
+        legendGroups={legendGroups}
         layerVisibility={layerVisibility}
         onToggleLayerVisibility={handleToggleLayerVisibility}
         onToggleCategory={handleToggleCategory}

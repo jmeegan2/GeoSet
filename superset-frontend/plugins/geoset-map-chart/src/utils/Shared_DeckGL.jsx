@@ -1,0 +1,523 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+import {
+  FeatureFlag,
+  isFeatureEnabled,
+  t,
+  validateNonEmpty,
+  validateMapboxStylesUrl,
+} from '@superset-ui/core';
+import { D3_FORMAT_OPTIONS, sharedControls } from '@superset-ui/chart-controls';
+import { columnChoices, PRIMARY_COLOR } from './controls';
+
+const DEFAULT_VIEWPORT = {
+  longitude: 6.85236157047845,
+  latitude: 31.222656842808707,
+  zoom: 1,
+  bearing: 0,
+  pitch: 0,
+};
+
+const sandboxUrl =
+  'https://github.com/apache/superset/' +
+  'blob/master/superset-frontend/plugins/legacy-preset-chart-deckgl/src/utils/sandbox.ts';
+const jsFunctionInfo = (
+  <div>
+    {t(
+      'For more information about objects are in context in the scope of this function, refer to the',
+    )}
+    <a href={sandboxUrl}>{t(" source code of Superset's sandboxed parser")}.</a>
+    .
+  </div>
+);
+
+function jsFunctionControl(
+  label,
+  description,
+  extraDescr = null,
+  height = 100,
+  defaultText = '',
+) {
+  return {
+    type: 'TextAreaControl',
+    language: 'javascript',
+    label,
+    description,
+    height,
+    default: defaultText,
+    aboveEditorSection: (
+      <div>
+        <p>{description}</p>
+        <p>{jsFunctionInfo}</p>
+        {extraDescr}
+      </div>
+    ),
+    warning: !isFeatureEnabled(FeatureFlag.EnableJavascriptControls)
+      ? t(
+          'This functionality is disabled in your environment for security reasons.',
+        )
+      : null,
+    readOnly: !isFeatureEnabled(FeatureFlag.EnableJavascriptControls),
+  };
+}
+
+export const filterNulls = {
+  name: 'filter_nulls',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Ignore null locations'),
+    default: true,
+    description: t('Whether to ignore locations that are null'),
+  },
+};
+
+export const autozoom = {
+  name: 'autozoom',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Auto Zoom'),
+    default: true,
+    renderTrigger: true,
+    description: t(
+      'When checked, the map will zoom to your data after each query',
+    ),
+  },
+};
+
+export const minMaxZoomSlider = {
+  name: 'minMaxZoomSlider',
+  config: {
+    type: 'SliderControl',
+    label: t('Zoom Levels for Layer Visibility'),
+    renderTrigger: false,
+    min: 0,
+    max: 22,
+    default: [0, 22],
+    range: true,
+    description: t(
+      'Select zoom range for layer visibility. 0-3: World/Continent, 3-10: Continent/City, 10-15: City/Street, 15-22: Street/Building.',
+    ),
+  },
+};
+
+export const enableClustering = {
+  name: 'enableClustering',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Enable Clustering'),
+    renderTrigger: true,
+    default: false,
+    description: t(
+      'When enabled, nearby points will be grouped into clusters. Disable for sparse data or when individual points need to remain visible.',
+    ),
+  },
+};
+
+export const clusterMaxZoom = {
+  name: 'clusterMaxZoom',
+  config: {
+    type: 'SliderControl',
+    label: t('Cluster Max Zoom'),
+    renderTrigger: true,
+    min: 0,
+    max: 22,
+    step: 1,
+    default: 14,
+    description: t(
+      'Zoom level at which clustering stops. Points will appear individually at zoom levels above this value.',
+    ),
+  },
+};
+
+export const clusterMinPoints = {
+  name: 'clusterMinPoints',
+  config: {
+    type: 'SliderControl',
+    label: t('Min Points per Cluster'),
+    renderTrigger: true,
+    min: 2,
+    max: 20,
+    step: 1,
+    default: 2,
+    description: t(
+      'Minimum number of points required to form a cluster. Points below this threshold will be shown individually.',
+    ),
+  },
+};
+
+export const clusterRadius = {
+  name: 'clusterRadius',
+  config: {
+    type: 'SliderControl',
+    label: t('Cluster Radius'),
+    renderTrigger: true,
+    min: 10,
+    max: 200,
+    step: 5,
+    default: 40,
+    description: t(
+      'Proximity radius in pixels. Points within this distance will be grouped into clusters.',
+    ),
+  },
+};
+
+export const dimension = {
+  name: 'dimension',
+  config: {
+    ...sharedControls.groupby,
+    label: t('Dimension'),
+    description: t('Select a dimension'),
+    multi: false,
+    default: null,
+  },
+};
+
+export const hoverDataColumns = {
+  name: 'hoverDataColumns',
+  config: {
+    ...sharedControls.groupby,
+    label: t('Hover-Over Data'),
+    default: [],
+    description: t('Add columns to be available in the hover tooltip. '),
+  },
+};
+
+export const featureInfoColumns = {
+  name: 'featureInfoColumns',
+  config: {
+    ...sharedControls.groupby,
+    label: t('Additional Details'),
+    default: [],
+    description: t(
+      'Select columns to display in the Feature Info popup when clicking on a map feature.',
+    ),
+  },
+};
+
+export const textLabelColumn = {
+  name: 'textLabelColumn',
+  config: {
+    ...sharedControls.groupby,
+    label: t('Text Label Column'),
+    multi: false,
+    default: null,
+    description: t(
+      'Select the column whose values will be displayed as text labels at each point location.',
+    ),
+  },
+};
+
+export const jsDataMutator = {
+  name: 'js_data_mutator',
+  config: jsFunctionControl(
+    t('JavaScript data interceptor'),
+    t(
+      'Define a javascript function that receives the data array used in the visualization ' +
+        'and is expected to return a modified version of that array. This can be used ' +
+        'to alter properties of the data, filter, or enrich the array.',
+    ),
+  ),
+};
+
+export const jsTooltip = {
+  name: 'js_tooltip',
+  config: jsFunctionControl(
+    t('JavaScript tooltip generator'),
+    t(
+      'Define a function that receives the input and outputs the content for a tooltip',
+    ),
+  ),
+};
+
+export const jsOnclickHref = {
+  name: 'js_onclick_href',
+  config: jsFunctionControl(
+    t('JavaScript onClick href'),
+    t('Define a function that returns a URL to navigate to when user clicks'),
+  ),
+};
+
+export const legendFormat = {
+  name: 'legend_format',
+  config: {
+    label: t('Legend Format'),
+    description: t('Choose the format for legend values'),
+    type: 'SelectControl',
+    clearable: false,
+    default: D3_FORMAT_OPTIONS[0][0],
+    choices: D3_FORMAT_OPTIONS,
+    renderTrigger: true,
+    freeForm: true,
+  },
+};
+
+export const legendPosition = {
+  name: 'legend_position',
+  config: {
+    label: t('Legend Position'),
+    description: t('Choose the position of the legend'),
+    type: 'SelectControl',
+    clearable: false,
+    default: 'tr',
+    choices: [
+      [null, t('None')],
+      ['tl', t('Top left')],
+      ['tr', t('Top right')],
+      ['bl', t('Bottom left')],
+      ['br', t('Bottom right')],
+    ],
+    renderTrigger: true,
+  },
+};
+
+export const lineColumn = {
+  name: 'line_column',
+  config: {
+    type: 'SelectControl',
+    label: t('Lines column'),
+    default: null,
+    description: t('The database columns that contains lines information'),
+    mapStateToProps: state => ({
+      choices: columnChoices(state.datasource),
+    }),
+    validators: [validateNonEmpty],
+  },
+};
+
+export const lineWidth = {
+  name: 'line_width',
+  config: {
+    type: 'TextControl',
+    label: t('Line width'),
+    renderTrigger: true,
+    isInt: true,
+    default: 1,
+    description: t('The width of the lines'),
+  },
+};
+
+export const fillColorPicker = {
+  name: 'fill_color_picker',
+  config: {
+    label: t('Fill Color'),
+    description: t(
+      ' Set the opacity to 0 if you do not want to override the color specified in the GeoJSON',
+    ),
+    type: 'ColorPickerControl',
+    default: PRIMARY_COLOR,
+    renderTrigger: true,
+  },
+};
+
+export const strokeColorPicker = {
+  name: 'stroke_color_picker',
+  config: {
+    label: t('Stroke Color'),
+    description: t(
+      ' Set the opacity to 0 if you do not want to override the color specified in the GeoJSON',
+    ),
+    type: 'ColorPickerControl',
+    default: PRIMARY_COLOR,
+    renderTrigger: true,
+  },
+};
+
+export const filled = {
+  name: 'filled',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Filled'),
+    renderTrigger: true,
+    description: t('Whether to fill the objects'),
+    default: true,
+  },
+};
+
+export const stroked = {
+  name: 'stroked',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Stroked'),
+    renderTrigger: true,
+    description: t('Whether to display the stroke'),
+    default: false,
+  },
+};
+
+export const extruded = {
+  name: 'extruded',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Extruded'),
+    renderTrigger: true,
+    default: true,
+    description: t('Whether to make the grid 3D'),
+  },
+};
+
+export const gridSize = {
+  name: 'grid_size',
+  config: {
+    type: 'TextControl',
+    label: t('Grid Size'),
+    renderTrigger: true,
+    default: 20,
+    isInt: true,
+    description: t('Defines the grid size in pixels'),
+  },
+};
+
+export const viewportControl = {
+  name: 'viewport',
+  config: {
+    type: 'ViewportControl',
+    label: t('Viewport'),
+    renderTrigger: true,
+    description: t('Parameters related to the view and perspective on the map'),
+    default: DEFAULT_VIEWPORT,
+    dontRefreshOnChange: false,
+  },
+};
+
+export const staticViewport = {
+  name: 'enable_static_viewport',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Enable Static Viewport'),
+    default: false,
+    renderTrigger: true,
+    description: t(
+      'When enabled, the map will use a fixed viewport instead of auto-zooming to layer data. Configure the viewport coordinates and zoom level below.',
+    ),
+  },
+};
+
+export const spatial = {
+  name: 'spatial',
+  config: {
+    type: 'SpatialControl',
+    label: t('Longitude & Latitude'),
+    validators: [validateNonEmpty],
+    description: t('Point to your spatial columns'),
+    mapStateToProps: state => ({
+      choices: columnChoices(state.datasource),
+    }),
+  },
+};
+
+export const pointRadiusFixed = {
+  name: 'point_radius_fixed',
+  config: {
+    type: 'FixedOrMetricControl',
+    label: t('Point Size'),
+    default: { type: 'fix', value: 1000 },
+    description: t('Fixed point radius'),
+    mapStateToProps: state => ({
+      datasource: state.datasource,
+    }),
+  },
+};
+
+export const multiplier = {
+  name: 'multiplier',
+  config: {
+    type: 'TextControl',
+    label: t('Multiplier'),
+    isFloat: true,
+    renderTrigger: true,
+    default: 1,
+    description: t('Factor to multiply the metric by'),
+  },
+};
+
+export const lineType = {
+  name: 'line_type',
+  config: {
+    type: 'SelectControl',
+    label: t('Lines encoding'),
+    clearable: false,
+    default: 'json',
+    description: t('The encoding format of the lines'),
+    choices: [
+      ['polyline', t('Polyline')],
+      ['json', t('JSON')],
+      ['geohash', t('geohash (square)')],
+    ],
+  },
+};
+
+export const reverseLongLat = {
+  name: 'reverse_long_lat',
+  config: {
+    type: 'CheckboxControl',
+    label: t('Reverse Lat & Long'),
+    default: false,
+  },
+};
+
+export const DEFAULT_DECKGL_TILES = [
+  ['mapbox://styles/mapbox/streets-v9', 'Streets'],
+  ['mapbox://styles/mapbox/dark-v9', 'Dark'],
+  ['mapbox://styles/mapbox/light-v9', 'Light'],
+  ['mapbox://styles/mapbox/satellite-streets-v9', 'Satellite Streets'],
+  ['mapbox://styles/mapbox/satellite-v9', 'Satellite'],
+  ['mapbox://styles/mapbox/outdoors-v9', 'Outdoors'],
+];
+
+export const mapboxStyle = {
+  name: 'mapbox_style',
+  config: {
+    type: 'SelectControl',
+    label: t('Map Style'),
+    clearable: false,
+    renderTrigger: true,
+    freeForm: true,
+    validators: [validateMapboxStylesUrl],
+    choices: [
+      ['mapbox://styles/acf-dart/cm8ovf5xt000v01s9fvk52nsa', t('Streets')],
+      ['mapbox://styles/acf-dart/cm8ov7bgj002h01qt7nz76r15', t('Dark')],
+      ['mapbox://styles/acf-dart/cm8ov8yl4001401s365rs672z', t('Light')],
+      [
+        'mapbox://styles/acf-dart/cm8ovcjzx001501s316b38a01',
+        t('Satellite Streets'),
+      ],
+      ['mapbox://styles/mapbox/satellite-v9', t('Satellite')],
+      ['mapbox://styles/acf-dart/cm8ova8jj007u01sd963n7ors', t('Outdoors')],
+    ],
+    default: 'mapbox://styles/acf-dart/cm8ov8yl4001401s365rs672z',
+    description: t(
+      'Base layer map style. See Mapbox documentation: %s',
+      'https://docs.mapbox.com/help/glossary/style-url/',
+    ),
+  },
+};
+
+export const geojsonColumn = {
+  name: 'geojson',
+  config: {
+    type: 'SelectControl',
+    label: t('GeoJson Column'),
+    validators: [validateNonEmpty],
+    description: t('Select the geojson column'),
+    mapStateToProps: state => ({
+      choices: columnChoices(state.datasource),
+    }),
+  },
+};
+

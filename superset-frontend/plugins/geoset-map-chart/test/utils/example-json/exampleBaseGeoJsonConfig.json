@@ -1,0 +1,14 @@
+{
+  "globalColoring": {
+    "fillColor": [40, 147, 179, 255],
+    "strokeColor": [0, 0, 0, 255],
+    "strokeWidth": 2,
+    "icon_type": "circle",
+    "lineStyle": "solid", 
+    "fillPattern": "solid"
+  },
+  "legend": {
+    "name": "human_readable_legend_chart_title",
+    "title": "title_for_legend_section"
+  }
+}
