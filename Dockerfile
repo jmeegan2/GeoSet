@@ -72,7 +72,7 @@ RUN mkdir -p /app/superset/static/assets \
 # as the full content of these folders don't change, yielding a decent cache reuse rate.
 # Note that it's not possible to selectively COPY or mount using blobs.
 RUN --mount=type=bind,source=./superset-frontend/package.json,target=./package.json \
-    --mount=type=bind,source=./superset-frontend/package-lock.json,target=./package-lock.json \
+    --mount=type=bind,source=./superset-frontend/npm-lock.json,target=./package-lock.json \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/root/.npm \
     if [ "$DEV_MODE" = "false" ]; then \
@@ -238,10 +238,13 @@ RUN --mount=type=cache,target=${SUPERSET_HOME}/.cache/uv \
 
 # Upgrade packages with known CVEs to patched versions
 RUN uv pip install --no-cache --reinstall \
+        "authlib>=1.6.9" \
         "brotli>=1.2.0" \
         "cryptography>=46.0.5" \
         "pillow>=12.1.1" \
         "pyasn1>=0.6.2" \
+        "pyjwt>=2.12.0" \
+        "pyopenssl>=26.0.0" \
         "urllib3>=2.6.3" \
         "setuptools>=78.1.1"
 

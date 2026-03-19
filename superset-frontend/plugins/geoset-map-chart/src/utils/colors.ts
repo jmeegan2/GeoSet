@@ -19,7 +19,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { CategoricalColorNamespace, QueryFormData } from '@superset-ui/core';
+import {
+  CategoricalColorNamespace,
+  DataRecord,
+  QueryFormData,
+} from '@superset-ui/core';
 import { rgb } from 'd3-color';
 import { GeoJsonFeature } from '../types';
 import { normalizeRGBA, hasValidFill } from './colorsFallback';
@@ -44,12 +48,58 @@ export type ColorByValueConfig = {
   breakpoints?: number[];
 };
 
+/** Raw config from JSON — bounds may be percentage strings like "25%". */
+export type ColorByValueConfigRaw = Omit<
+  ColorByValueConfig,
+  'lowerBound' | 'upperBound' | 'breakpoints'
+> & {
+  lowerBound?: number | string | null;
+  upperBound?: number | string | null;
+  breakpoints?: (number | string)[];
+};
+
+export type PointSizeConfig = {
+  valueColumn: string;
+  startSize: number; // pixel size at lowerBound
+  endSize: number; // pixel size at upperBound
+  lowerBound?: number | null;
+  upperBound?: number | null;
+};
+
+/** Raw config from JSON — bounds may be percentage strings like "25%". */
+export type PointSizeConfigRaw = Omit<
+  PointSizeConfig,
+  'lowerBound' | 'upperBound'
+> & {
+  lowerBound?: number | string | null;
+  upperBound?: number | string | null;
+};
+
+export function computeSizeScale(
+  config: PointSizeConfig,
+  dataDomain: [number, number],
+): (val: number) => number {
+  const [min, max] = dataDomain;
+  const lower = config.lowerBound ?? min;
+  const upper = config.upperBound ?? max;
+  const range = upper - lower;
+  return (val: number) => {
+    if (val == null || Number.isNaN(val) || range === 0)
+      return config.startSize;
+    const t = Math.max(0, Math.min(1, (val - lower) / range));
+    return Math.round(
+      config.startSize + t * (config.endSize - config.startSize),
+    );
+  };
+}
+
 export type MetricLegend = {
   min: number;
   max: number;
   startColor: RGBAColor;
   endColor: RGBAColor;
   legendName: string;
+  usesPercentBounds?: boolean;
 };
 
 // eslint-disable-next-line import/prefer-default-export
@@ -464,8 +514,9 @@ export function computeMetricColorScaleUnified(
       const clamped = clampToDomain(val);
       for (let i = 0; i < numSegments; i++) {
         if (clamped <= stops[i + 1]) {
-          const t = (clamped - stops[i]) / (stops[i + 1] - stops[i]);
-          return interp(t);
+          const segRange = stops[i + 1] - stops[i];
+          const t = segRange === 0 ? 0 : (clamped - stops[i]) / segRange;
+          return interp((i + t) / numSegments);
         }
       }
       return [...endColor];
@@ -474,10 +525,13 @@ export function computeMetricColorScaleUnified(
 
   // Continuous metric coloring
   const lerp = interpolateRGBA(startColor, endColor);
+  const range = upper - lower;
   return (val: number) => {
     if (val == null) return [...startColor];
+    // When min === max (single value), avoid NaN from 0/0 division
+    if (range === 0) return [...startColor];
     const clamped = clampToDomain(val);
-    const t = (clamped - lower) / (upper - lower);
+    const t = (clamped - lower) / range;
     return lerp(t);
   };
 }
@@ -514,4 +568,122 @@ export function getFeatureColor(
   const arr = (fillColorArray ?? DEFAULT_SUPERSET_COLOR).slice(0, 4);
   while (arr.length < 4) arr.push(defaultAlpha); // Default alpha if missing
   return arr as RGBAColor;
+}
+
+/**
+ * Check if a value is a percentage string (e.g. "25%").
+ */
+export function isPercentString(value: unknown): value is string {
+  return typeof value === 'string' && /^\d+(\.\d+)?%$/.test(value.trim());
+}
+
+/**
+ * Compute the p-th percentile of a sorted array using linear interpolation.
+ * @param sorted Array of numbers, must be sorted ascending.
+ * @param p Percentile as a fraction (0 to 1). E.g. 0.25 for 25th percentile.
+ */
+export function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  if (sorted.length === 1) return sorted[0];
+  if (p <= 0) return sorted[0];
+  if (p >= 1) return sorted[sorted.length - 1];
+  const index = p * (sorted.length - 1);
+  const lo = Math.floor(index);
+  const hi = Math.ceil(index);
+  const weight = index - lo;
+  return sorted[lo] * (1 - weight) + sorted[hi] * weight;
+}
+
+/**
+ * Resolve a bound or breakpoint value. If it's a percentage string like "25%",
+ * compute the percentile from sortedValues. If it's a number, return as-is.
+ * If null/undefined, return the provided fallback.
+ */
+export function resolvePercentOrNumber(
+  value: number | string | null | undefined,
+  sortedValues: number[],
+  fallback: number,
+): number {
+  if (value == null) return fallback;
+  if (typeof value === 'number') return value;
+  if (isPercentString(value)) {
+    const pct = parseFloat(value) / 100;
+    return percentile(sortedValues, pct);
+  }
+  return fallback;
+}
+
+export type ResolvedBounds = {
+  sortedValues: number[];
+  lower: number;
+  upper: number;
+  usesPercentBounds: boolean;
+};
+
+/**
+ * Extract numeric values from rawData for a column, sort them, and resolve
+ * percentage-or-number bounds. Shared by metric coloring and point sizing.
+ */
+export function resolveNumericBounds(
+  rawData: DataRecord[],
+  valueColumn: string,
+  lowerBound: number | string | null | undefined,
+  upperBound: number | string | null | undefined,
+  warnLabel: string,
+): ResolvedBounds | null {
+  const values = rawData
+    .map(d => {
+      const value = d[valueColumn];
+      return value != null && !Number.isNaN(Number(value))
+        ? Number(value)
+        : null;
+    })
+    .filter((v): v is number => v !== null);
+
+  if (values.length === 0) return null;
+
+  const sortedValues = [...values].sort((a, b) => a - b);
+  const lower = resolvePercentOrNumber(
+    lowerBound,
+    sortedValues,
+    sortedValues[0],
+  );
+  const upper = resolvePercentOrNumber(
+    upperBound,
+    sortedValues,
+    sortedValues[sortedValues.length - 1],
+  );
+  // Inverted bounds (lower > upper) can occur when percentage bounds resolve
+  // to unexpected values. The scale will clamp everything to startColor.
+  if (lower > upper) {
+    console.warn(
+      `[GeoSet] Resolved ${warnLabel} lowerBound (%s) is greater than upperBound (%s). Scaling may behave unexpectedly.`,
+      lower,
+      upper,
+    );
+  }
+  const usesPercentBounds =
+    isPercentString(lowerBound) || isPercentString(upperBound);
+
+  return { sortedValues, lower, upper, usesPercentBounds };
+}
+
+export function lerpColorCss(c1: RGBAColor, c2: RGBAColor, t: number): string {
+  const r = Math.round(c1[0] + t * (c2[0] - c1[0]));
+  const g = Math.round(c1[1] + t * (c2[1] - c1[1]));
+  const b = Math.round(c1[2] + t * (c2[2] - c1[2]));
+  return `rgba(${r},${g},${b},0.8)`;
+}
+
+export function lerpColorRgba(
+  c1: RGBAColor,
+  c2: RGBAColor,
+  t: number,
+): RGBAColor {
+  return [
+    Math.round(c1[0] + t * (c2[0] - c1[0])),
+    Math.round(c1[1] + t * (c2[1] - c1[1])),
+    Math.round(c1[2] + t * (c2[2] - c1[2])),
+    204,
+  ];
 }

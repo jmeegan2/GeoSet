@@ -14,6 +14,11 @@ Details related to the backend can be found within the `superset/CLAUDE.md` file
 
 Details related to the frontend and plugin development can be found within the `superset-frontend/CLAUDE.md` file.
 
+## Python Requirements
+
+- Never edit `.txt` requirement files directly. They are compiled output.
+- Instead, edit the corresponding `.in` file in `requirements/` and recompile with: `uv pip compile requirements/<name>.in -o requirements/<name>.txt`
+
 ## Important Notes
 
 - This is a GitLab repository. Use the `glab` CLI (not `gh`) for all GitLab operations such as creating merge requests, viewing pipelines, etc.

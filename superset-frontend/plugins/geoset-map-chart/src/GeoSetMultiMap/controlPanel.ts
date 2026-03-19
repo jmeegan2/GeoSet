@@ -21,7 +21,8 @@ import {
   mapboxStyle,
   staticViewport,
   viewportControl,
-} from '../utilities/Shared_DeckGL';
+} from '../utils/Shared_DeckGL';
+import { getLiveViewport } from '../utils/liveViewportStore';
 
 export default {
   controlPanelSections: [
@@ -38,6 +39,10 @@ export default {
               ...viewportControl.config,
               visibility: ({ controls }: { controls: any }) =>
                 controls?.enable_static_viewport?.value === true,
+              shouldMapStateToProps: () => true,
+              mapStateToProps: () => ({
+                getLiveViewport,
+              }),
             },
           },
         ],

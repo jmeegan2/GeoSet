@@ -63,7 +63,7 @@ export class Theme {
 
   private static readonly defaultTokens = {
     // Brand
-    brandLogoAlt: 'Apache Superset',
+    brandLogoAlt: 'ACF Situational Awareness Tool',
     brandLogoUrl: '/static/assets/images/superset-logo-horiz.png',
     brandLogoMargin: '18px',
     brandLogoHref: '/',
