@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgis
+spec:
+  serviceName: postgis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgis
+  template:
+    metadata:
+      labels:
+        app: postgis
+    spec:
+      containers:
+        - name: postgis
+          image: postgis/postgis:16-3.4
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-env
+                  key: POSTGIS_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-env
+                  key: POSTGIS_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: POSTGIS_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: postgis-data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "geoset", "-d", "geoset"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "geoset", "-d", "geoset"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: initdb
+          configMap:
+            name: postgis-initdb
+  volumeClaimTemplates:
+    - metadata:
+        name: postgis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

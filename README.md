@@ -115,6 +115,10 @@ The Dockerfile at the root of the repository uses the same Debian-based image us
 DOCKERFILE=Dockerfile.rhel docker compose up
 ```
 
+### Kubernetes Deployment
+
+Kustomize overlays are available in [`kustomize/`](./kustomize/) for deploying GeoSet to Kubernetes. The `base` overlay mirrors the Docker Compose stack (dev/demo), while `full` adds Redis, Celery workers, and Flux GitOps for production use. See [`kustomize/README.md`](./kustomize/README.md) for details.
+
 ### Step 3 - Open GeoSet and Explore
 
 We've created an example dashboard accessible at [http://localhost:9001/superset/dashboard/geoset-example-dashboard](http://localhost:9001/superset/dashboard/geoset-example-dashboard).

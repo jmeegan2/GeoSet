@@ -24,6 +24,7 @@ GeoSet is a geospatial data monitoring and visualization platform built on [Apac
 - [[Sample Dashboards]] — Loading the example Hurricane and Wildfire dashboards
 - [[Development Guide]] — Local dev setup, plugin architecture, contributing
 - [[JSON Config Spec]] — Reference for the GeoSet Map Layer JSON configuration schema
+- [Kubernetes Deployment](../kustomize/README.md) — Deploying GeoSet to Kubernetes with Kustomize overlays
 
 ## Repository
 

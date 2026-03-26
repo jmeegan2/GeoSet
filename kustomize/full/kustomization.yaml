@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Inherit everything from base
+resources:
+  - ../base
+
+  # Additional services for full deployment
+  - redis/statefulset.yaml
+  - redis/service.yaml
+  - superset-worker/deployment.yaml
+  - superset-beat/deployment.yaml
+
+# Override the superset-env configmap to add Redis vars and switch to full config
+configMapGenerator:
+  - name: superset-env
+    behavior: merge
+    envs:
+      - config/superset-env-patch.env
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+# Patch superset-web: bump replicas to 2 and wait for Redis
+patches:
+  - path: superset-web-patch.yaml
+    target:
+      kind: Deployment
+      name: superset-web

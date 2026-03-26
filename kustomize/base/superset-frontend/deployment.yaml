@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset-frontend
+  labels:
+    environment: dev-only
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: superset-frontend
+  template:
+    metadata:
+      labels:
+        app: superset-frontend
+        component: superset
+        environment: dev-only
+    spec:
+      containers:
+        - name: frontend
+          image: jmeegan607/geoset
+          command: ["npm", "run", "dev-server", "--prefix", "/app/superset-frontend"]
+          ports:
+            - containerPort: 9000
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10

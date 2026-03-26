@@ -28,6 +28,10 @@ When pulling in upstream Apache Superset changes, update the **"Based on"** fiel
 
 Wiki pages live in `wiki/` and are synced to the GitHub Wiki on merge to main via `.github/workflows/sync-wiki.yml`. Documentation sync runs automatically as a background process during `/commit-and-push` and `/merge-request` — it audits wiki pages, README.md, and inline documentation against code changes. See `.claude/skills/sync-documentation.md` for details.
 
+## Kubernetes Deployment
+
+Kustomize overlays live in `kustomize/`. This is GeoSet-specific (not upstream Superset). `base/` is the dev/demo overlay analogous to Docker Compose; `full/` adds Redis, Celery, and Flux GitOps for production.
+
 ## Important Notes
 
 - Always use context7 when I need code generation, setup or configuration steps, or

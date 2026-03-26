@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-metadata
+spec:
+  serviceName: postgres-metadata
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-metadata
+  template:
+    metadata:
+      labels:
+        app: postgres-metadata
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-env
+                  key: DATABASE_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-env
+                  key: DATABASE_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: DATABASE_PASSWORD
+            - name: EXAMPLES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-env
+                  key: EXAMPLES_USER
+            - name: EXAMPLES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: EXAMPLES_PASSWORD
+            - name: EXAMPLES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-env
+                  key: EXAMPLES_DB
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: metadata-data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "superset", "-d", "superset"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "superset", "-d", "superset"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: initdb
+          configMap:
+            name: postgres-metadata-initdb
+            defaultMode: 0755
+  volumeClaimTemplates:
+    - metadata:
+        name: metadata-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

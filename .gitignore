@@ -138,3 +138,6 @@ scratch/
 # Untracked personal Claude Code files (e.g. CLAUDE.local.md, commands/my-command.local.md)
 .claude/**/*.local.*
 CLAUDE.local.md
+
+# Kustomize secrets (real values — never commit)
+kustomize/**/secrets.yaml

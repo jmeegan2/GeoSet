@@ -78,6 +78,9 @@ GeoSet/
 ├── sample-data/                       # Demo data ingestion pipeline
 ├── docker/                            # Docker configuration and init scripts
 ├── docker-compose.yml                 # Main stack (includes GeoSet demo data)
+├── kustomize/                         # Kubernetes deployment (Kustomize overlays)
+│   ├── base/                          # Dev/demo: PostGIS, metadata DB, Superset web
+│   └── full/                          # Production: adds Redis, Celery, Flux GitOps
 └── VERSIONING.md                      # GeoSet version policy and changelog
 ```
 

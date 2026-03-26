@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: superset-worker
+  template:
+    metadata:
+      labels:
+        app: superset-worker
+        component: superset
+    spec:
+      initContainers:
+        - name: wait-for-redis
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z redis 6379; do
+                echo "waiting for redis..."
+                sleep 2
+              done
+      containers:
+        - name: worker
+          image: jmeegan607/geoset
+          command: ["celery", "--app=superset.tasks.celery_app:app",
+                    "worker", "--pool=prefork", "-O", "fair",
+                    "-c", "4", "--loglevel=INFO"]
+          envFrom:
+            - configMapRef:
+                name: superset-env
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: DATABASE_PASSWORD
+            - name: EXAMPLES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: EXAMPLES_PASSWORD
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: SUPERSET_SECRET_KEY
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - celery --app=superset.tasks.celery_app:app inspect ping -d celery@$HOSTNAME
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 10

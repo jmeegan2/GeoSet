@@ -75,6 +75,8 @@ docker compose down
 docker compose down -v
 ```
 
+> **Kubernetes:** A Kustomize-based deployment option is also available. See [`kustomize/README.md`](../kustomize/README.md) for details.
+
 ## Next Steps
 
 - Load the [[Sample Dashboards]] to see GeoSet in action

@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: geoset
+
+configMapGenerator:
+  - name: superset-env
+    envs:
+      - config/superset.env
+  - name: postgres-metadata-initdb
+    files:
+      - postgres-metadata/examples-init.sh
+  - name: postgis-initdb
+    files:
+      - postgis/init.sql
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+images:
+  - name: jmeegan607/geoset
+    newTag: "6.0.48"
+
+resources:
+  # Cluster setup
+  - namespace.yaml
+  # NOTE: Copy secrets.yaml.example to secrets.yaml and fill in real values
+  # secrets.yaml is gitignored — never commit real secrets
+  - secrets.yaml
+
+  # StatefulSets (data layer)
+  - postgis/statefulset.yaml
+  - postgis/service.yaml
+  - postgres-metadata/statefulset.yaml
+  - postgres-metadata/service.yaml
+
+  # Jobs (init before app starts)
+  - superset-init/job.yaml
+  - sample-data-ingest/job.yaml
+
+  # Deployments (app layer)
+  - superset-web/deployment.yaml
+  - superset-web/service.yaml
+  # superset-frontend is dev-only (webpack dev server) — the production image
+  # already includes built frontend assets. Uncomment for a dev overlay if needed.
+  # - superset-frontend/deployment.yaml
+  # - superset-frontend/service.yaml
