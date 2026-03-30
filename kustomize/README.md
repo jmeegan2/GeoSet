@@ -97,6 +97,9 @@ The full overlay adds on top of base:
 - **Redis** — caching backend and Celery message broker
 - **Celery workers** (2 replicas) — async query execution
 - **Celery beat** — scheduled tasks including cache warmup and automated report generation
+- **MailHog** — in-cluster fake SMTP server for dev/testing alert email delivery (SMTP on port 1025, web UI on port 8025)
+- **Wildfire Alert bootstrap** — one-time Job that seeds a daily "Wildfire Proximity Alert" SQL alert via the Superset REST API after init
+- **SMTP / Alerts & Reports env vars** — pre-configured to use MailHog; swap env vars in `config/superset-env-patch.env` for production SMTP
 - **Flux GitOps** — auto-syncs from `raft-tech/GeoSet` main branch
 
 It also patches `superset-web` to 2 replicas and adds a Redis readiness check to its init container.

@@ -10,6 +10,9 @@ resources:
   - redis/service.yaml
   - superset-worker/deployment.yaml
   - superset-beat/deployment.yaml
+  - wildfire-alert/job.yaml
+  - mailhog/deployment.yaml
+  - mailhog/service.yaml
 
 # Override the superset-env configmap to add Redis vars and switch to full config
 configMapGenerator:
@@ -17,6 +20,9 @@ configMapGenerator:
     behavior: merge
     envs:
       - config/superset-env-patch.env
+  - name: wildfire-alert-bootstrap
+    files:
+      - bootstrap-alert.sh=wildfire-alert/bootstrap-alert.sh
 
 generatorOptions:
   disableNameSuffixHash: true
