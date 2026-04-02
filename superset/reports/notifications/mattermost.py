@@ -53,8 +53,34 @@ class MattermostNotification(SlackMixin, BaseNotification):
         body = self._get_body(content=self._content)
         image_uri = self._get_inline_image()
 
+        if not image_uri and self._content.screenshots:
+            raise NotificationUnprocessableException(
+                "Failed to encode screenshot for Mattermost"
+            )
+
         if image_uri:
             body += f"\n\n![report screenshot]({image_uri})"
+
+        logger.info(
+            "[MATTERMOST DEBUG] screenshots=%s pdf=%s csv=%s text=%s body_len=%d",
+            len(self._content.screenshots) if self._content.screenshots else 0,
+            len(self._content.pdf) if self._content.pdf else 0,
+            len(self._content.csv) if self._content.csv else 0,
+            bool(self._content.text),
+            len(body),
+        )
+        logger.info("[MATTERMOST DEBUG] body=%s", body[:500])
+
+        # Save files to /tmp
+        if self._content.screenshots:
+            for i, img in enumerate(self._content.screenshots):
+                with open(f"/tmp/mattermost_screenshot_{i}.png", "wb") as f:
+                    f.write(img)
+                logger.info("[MATTERMOST DEBUG] Saved screenshot %d (%d bytes)", i, len(img))
+        if self._content.pdf:
+            with open("/tmp/mattermost_report.pdf", "wb") as f:
+                f.write(self._content.pdf)
+            logger.info("[MATTERMOST DEBUG] Saved PDF (%d bytes)", len(self._content.pdf))
 
         payload: dict = {"text": body}
 
