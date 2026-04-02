@@ -28,7 +28,7 @@ spec:
               done
       containers:
         - name: beat
-          image: jmeegan607/geoset
+          image: jmeegan607/geoset:chromium
           command: ["celery", "--app=superset.tasks.celery_app:app",
                     "beat", "--loglevel=INFO",
                     "--schedule=/tmp/celerybeat-schedule"]
@@ -51,6 +51,11 @@ spec:
                 secretKeyRef:
                   name: superset-secrets
                   key: SUPERSET_SECRET_KEY
+            - name: MAPBOX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-secrets
+                  key: MAPBOX_API_KEY
           resources:
             requests:
               cpu: 50m

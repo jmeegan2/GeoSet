@@ -52,6 +52,12 @@ export default function RecipientIcon({ type }: { type: string }) {
       );
       recipientIconConfig.label = NotificationMethodOption.Slack;
       break;
+    case NotificationMethodOption.Mattermost:
+      recipientIconConfig.icon = (
+        <Icons.CommentOutlined css={notificationStyledIcon} iconSize="l" />
+      );
+      recipientIconConfig.label = NotificationMethodOption.Mattermost;
+      break;
     default:
       recipientIconConfig.icon = null;
       recipientIconConfig.label = '';

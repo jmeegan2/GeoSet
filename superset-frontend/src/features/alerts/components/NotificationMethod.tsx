@@ -325,6 +325,8 @@ export const NotificationMethod: FunctionComponent<NotificationMethodProps> = ({
     );
     if (slackEnabled && !slackOptions[0]?.options.length) {
       updateSlackOptions();
+    } else {
+      setMethodOptionsLoading(false);
     }
   }, []);
 
@@ -339,7 +341,8 @@ export const NotificationMethod: FunctionComponent<NotificationMethodProps> = ({
             ((!isFeatureEnabled(FeatureFlag.AlertReportSlackV2) ||
               useSlackV1) &&
               method === NotificationMethodOption.Slack) ||
-            method === NotificationMethodOption.Email,
+            method === NotificationMethodOption.Email ||
+            method === NotificationMethodOption.Mattermost,
         )
         .map(method => ({
           label:
@@ -522,6 +525,7 @@ export const NotificationMethod: FunctionComponent<NotificationMethodProps> = ({
                 {[
                   NotificationMethodOption.Email,
                   NotificationMethodOption.Slack,
+                  NotificationMethodOption.Mattermost,
                 ].includes(method) ? (
                   <>
                     <div className="input-container">
