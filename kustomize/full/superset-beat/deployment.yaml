@@ -29,6 +29,7 @@ spec:
       containers:
         - name: beat
           image: jmeegan607/geoset:chromium
+          imagePullPolicy: Always
           command: ["celery", "--app=superset.tasks.celery_app:app",
                     "beat", "--loglevel=INFO",
                     "--schedule=/tmp/celerybeat-schedule"]
@@ -56,6 +57,10 @@ spec:
                 secretKeyRef:
                   name: superset-secrets
                   key: MAPBOX_API_KEY
+          volumeMounts:
+            - name: config-overrides
+              mountPath: /app/docker/pythonpath_dev/superset_config_docker.py
+              subPath: superset_config_docker.py
           resources:
             requests:
               cpu: 50m
@@ -63,3 +68,7 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+      volumes:
+        - name: config-overrides
+          configMap:
+            name: superset-config-overrides

@@ -27,6 +27,7 @@ spec:
       containers:
         - name: worker
           image: jmeegan607/geoset:chromium
+          imagePullPolicy: Always
           command: ["celery", "--app=superset.tasks.celery_app:app",
                     "worker", "--pool=prefork", "-O", "fair",
                     "-c", "4", "--loglevel=INFO"]
@@ -61,6 +62,10 @@ spec:
             limits:
               cpu: "2"
               memory: 2Gi
+          volumeMounts:
+            - name: config-overrides
+              mountPath: /app/docker/pythonpath_dev/superset_config_docker.py
+              subPath: superset_config_docker.py
           livenessProbe:
             exec:
               command:
@@ -70,3 +75,7 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 60
             timeoutSeconds: 10
+      volumes:
+        - name: config-overrides
+          configMap:
+            name: superset-config-overrides

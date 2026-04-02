@@ -21,3 +21,14 @@ spec:
                 echo "waiting for redis..."
                 sleep 2
               done
+      containers:
+        - name: superset
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: config-overrides
+              mountPath: /app/docker/pythonpath_dev/superset_config_docker.py
+              subPath: superset_config_docker.py
+      volumes:
+        - name: config-overrides
+          configMap:
+            name: superset-config-overrides

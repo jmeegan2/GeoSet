@@ -17,9 +17,9 @@ configMapGenerator:
 generatorOptions:
   disableNameSuffixHash: true
 
-images:
-  - name: jmeegan607/geoset
-    newTag: "6.0.48"
+# images:
+#   - name: jmeegan607/geoset
+#     newTag: "6.0.48"
 
 resources:
   # Cluster setup

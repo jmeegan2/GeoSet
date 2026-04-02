@@ -1,0 +1,104 @@
+#
+# Full GeoSet development environment.
+# Adds Redis, Celery worker, and Celery beat to the base compose.
+#
+# USAGE:
+#   docker compose -f docker-compose.yml -f docker-compose.full.yml up
+#
+services:
+  # ---------- Redis (Celery broker + cache) ----------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  # ---------- Override base superset to use full config ----------
+  superset-init:
+    environment:
+      SUPERSET_CONFIG_PATH: /app/docker/pythonpath_dev/superset_config.py
+    depends_on:
+      db:
+        condition: service_started
+      postgis:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  superset:
+    environment:
+      SUPERSET_CONFIG_PATH: /app/docker/pythonpath_dev/superset_config.py
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+
+  # ---------- Celery worker (executes alerts, takes screenshots) ----------
+  superset-worker:
+    build:
+      context: .
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+      target: dev
+      args:
+        DEV_MODE: "true"
+        INCLUDE_CHROMIUM: "true"
+    command: ["celery", "--app=superset.tasks.celery_app:app",
+              "worker", "--pool=prefork", "-O", "fair",
+              "-c", "2", "--loglevel=INFO"]
+    restart: unless-stopped
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    environment:
+      SUPERSET_CONFIG_PATH: /app/docker/pythonpath_dev/superset_config.py
+    user: root
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    volumes:
+      - ./docker:/app/docker
+      - ./superset:/app/superset
+      - ./superset-frontend:/app/superset-frontend
+      - superset_home:/app/superset_home
+      - ./tests:/app/tests
+
+  # ---------- Celery beat (schedules alerts) ----------
+  superset-beat:
+    build:
+      context: .
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+      target: dev
+      args:
+        DEV_MODE: "true"
+    command: ["celery", "--app=superset.tasks.celery_app:app",
+              "beat", "--loglevel=INFO",
+              "--schedule=/tmp/celerybeat-schedule"]
+    restart: unless-stopped
+    env_file:
+      - path: docker/.env
+        required: true
+      - path: docker/.env-local
+        required: false
+    environment:
+      SUPERSET_CONFIG_PATH: /app/docker/pythonpath_dev/superset_config.py
+    user: root
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    volumes:
+      - ./docker:/app/docker
+      - ./superset:/app/superset
+      - ./superset-frontend:/app/superset-frontend
+      - superset_home:/app/superset_home
+      - ./tests:/app/tests
+
+volumes:
+  redis_data:
+    external: false

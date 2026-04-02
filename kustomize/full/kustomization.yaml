@@ -20,12 +20,19 @@ configMapGenerator:
     behavior: merge
     envs:
       - config/superset-env-patch.env
+  - name: superset-config-overrides
+    files:
+      - superset_config_docker.py=config/superset_config_docker.py
   - name: wildfire-alert-bootstrap
     files:
       - bootstrap-alert.sh=wildfire-alert/bootstrap-alert.sh
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: jmeegan607/geoset
+    newTag: chromium
 
 # Patch superset-web: bump replicas to 2 and wait for Redis
 patches:

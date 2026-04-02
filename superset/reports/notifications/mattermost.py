@@ -1,10 +1,17 @@
+import base64
 import logging
+
+import requests
+from flask import current_app
 
 from superset.reports.models import ReportRecipientType
 from superset.reports.notifications.base import BaseNotification
+from superset.reports.notifications.exceptions import (
+    NotificationParamException,
+    NotificationUnprocessableException,
+)
 from superset.reports.notifications.slack_mixin import SlackMixin
 from superset.utils import json
-from superset.utils.core import recipients_string_to_list
 
 logger = logging.getLogger(__name__)
 
@@ -12,30 +19,51 @@ logger = logging.getLogger(__name__)
 class MattermostNotification(SlackMixin, BaseNotification):
     """
     Sends a notification to Mattermost via incoming webhook.
-    Currently stubbed — logs the payload and returns success.
-    TODO: Wire up to real Mattermost webhook.
+    Embeds screenshots as inline base64 images.
     """
 
     type = ReportRecipientType.MATTERMOST
 
-    def _get_channels(self) -> list[str]:
-        recipient_str = json.loads(self._recipient.recipient_config_json)["target"]
-        return recipients_string_to_list(recipient_str)
+    def _get_inline_image(self) -> str | None:
+        """Get the first available image as a base64 data URI."""
+        if self._content.screenshots:
+            b64 = base64.b64encode(self._content.screenshots[0]).decode()
+            return f"data:image/png;base64,{b64}"
+        if self._content.pdf:
+            # PDF is built from screenshots — encode it as-is
+            # Mattermost won't render PDF inline, but we can try
+            # converting via the first page if possible
+            try:
+                from superset.utils.pdf import build_pdf_from_screenshots  # noqa
+
+                # The PDF bytes are already built, no way to reverse easily.
+                # Just skip image for PDF format — text + link is sent.
+                return None
+            except ImportError:
+                return None
+        return None
 
     def send(self) -> None:
+        webhook_url = current_app.config.get("MATTERMOST_WEBHOOK_URL")
+        if not webhook_url:
+            raise NotificationParamException(
+                "MATTERMOST_WEBHOOK_URL is not configured in superset_config"
+            )
+
         body = self._get_body(content=self._content)
-        channels = self._get_channels()
+        image_uri = self._get_inline_image()
 
-        has_screenshot = bool(self._content.screenshots)
-        has_csv = bool(self._content.csv)
-        has_pdf = bool(self._content.pdf)
+        if image_uri:
+            body += f"\n\n![report screenshot]({image_uri})"
 
-        logger.info(
-            "[MATTERMOST STUB] Would send to channels=%s | "
-            "screenshot=%s | csv=%s | pdf=%s | body=%s",
-            channels,
-            has_screenshot,
-            has_csv,
-            has_pdf,
-            body[:200],
-        )
+        payload: dict = {"text": body}
+
+        try:
+            resp = requests.post(webhook_url, json=payload, timeout=30)
+            resp.raise_for_status()
+        except requests.exceptions.RequestException as ex:
+            raise NotificationUnprocessableException(
+                f"Failed to send Mattermost notification: {ex}"
+            ) from ex
+
+        logger.info("Report sent to Mattermost")
