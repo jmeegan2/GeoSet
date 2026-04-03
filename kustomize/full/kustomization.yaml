@@ -10,7 +10,6 @@ resources:
   - redis/service.yaml
   - superset-worker/deployment.yaml
   - superset-beat/deployment.yaml
-  - wildfire-alert/job.yaml
   - mailhog/deployment.yaml
   - mailhog/service.yaml
 
@@ -23,16 +22,13 @@ configMapGenerator:
   - name: superset-config-overrides
     files:
       - superset_config_docker.py=config/superset_config_docker.py
-  - name: wildfire-alert-bootstrap
-    files:
-      - bootstrap-alert.sh=wildfire-alert/bootstrap-alert.sh
 
 generatorOptions:
   disableNameSuffixHash: true
 
 images:
   - name: jmeegan607/geoset
-    newTag: chromium
+    newTag: full
 
 # Patch superset-web: bump replicas to 2 and wait for Redis
 patches:

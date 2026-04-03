@@ -1,6 +1,0 @@
-FROM jmeegan607/geoset
-USER root
-RUN uv pip install --python /app/.venv/bin/python playwright && playwright install-deps && /app/.venv/bin/playwright install chromium
-RUN echo 'WEBDRIVER_TYPE = "chrome"' >> /app/docker/pythonpath_dev/superset_config_docker.py && \
-    echo 'ALERT_REPORTS_NOTIFICATION_METHODS = ["Mattermost"]' >> /app/docker/pythonpath_dev/superset_config_docker.py
-USER superset
