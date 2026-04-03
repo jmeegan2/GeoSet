@@ -17,6 +17,8 @@ services:
   superset-init:
     environment:
       SUPERSET_CONFIG_PATH: /app/docker/pythonpath_dev/superset_config.py
+    volumes:
+      - ./docker/pythonpath_dev/superset_config_docker_full.py:/app/docker/pythonpath_dev/superset_config_docker.py
     depends_on:
       db:
         condition: service_started
@@ -28,6 +30,8 @@ services:
   superset:
     environment:
       SUPERSET_CONFIG_PATH: /app/docker/pythonpath_dev/superset_config.py
+    volumes:
+      - ./docker/pythonpath_dev/superset_config_docker_full.py:/app/docker/pythonpath_dev/superset_config_docker.py
     depends_on:
       superset-init:
         condition: service_completed_successfully
@@ -62,6 +66,7 @@ services:
         condition: service_started
     volumes:
       - ./docker:/app/docker
+      - ./docker/pythonpath_dev/superset_config_docker_full.py:/app/docker/pythonpath_dev/superset_config_docker.py
       - ./superset:/app/superset
       - ./superset-frontend:/app/superset-frontend
       - superset_home:/app/superset_home
@@ -94,6 +99,7 @@ services:
         condition: service_started
     volumes:
       - ./docker:/app/docker
+      - ./docker/pythonpath_dev/superset_config_docker_full.py:/app/docker/pythonpath_dev/superset_config_docker.py
       - ./superset:/app/superset
       - ./superset-frontend:/app/superset-frontend
       - superset_home:/app/superset_home
