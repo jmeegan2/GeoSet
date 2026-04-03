@@ -10,8 +10,6 @@ resources:
   - redis/service.yaml
   - superset-worker/deployment.yaml
   - superset-beat/deployment.yaml
-  - mailhog/deployment.yaml
-  - mailhog/service.yaml
 
 # Override the superset-env configmap to add Redis vars and switch to full config
 configMapGenerator:
