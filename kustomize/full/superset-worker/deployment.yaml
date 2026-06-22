@@ -55,13 +55,6 @@ spec:
                 secretKeyRef:
                   name: superset-secrets
                   key: MAPBOX_API_KEY
-          resources:
-            requests:
-              cpu: 500m
-              memory: 512Mi
-            limits:
-              cpu: "2"
-              memory: 2Gi
           volumeMounts:
             - name: config-overrides
               mountPath: /app/docker/pythonpath_dev/superset_config_docker.py

@@ -61,13 +61,6 @@ spec:
             - name: config-overrides
               mountPath: /app/docker/pythonpath_dev/superset_config_docker.py
               subPath: superset_config_docker.py
-          resources:
-            requests:
-              cpu: 50m
-              memory: 128Mi
-            limits:
-              cpu: 250m
-              memory: 256Mi
       volumes:
         - name: config-overrides
           configMap:
