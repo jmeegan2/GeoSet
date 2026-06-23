@@ -385,7 +385,11 @@ def cached_common_bootstrap_data(  # pylint: disable=unused-argument
         for k in FRONTEND_CONF_KEYS
     }
 
-    if app.config.get("SLACK_API_TOKEN"):
+    if app.config.get("ALERT_REPORTS_NOTIFICATION_METHODS"):
+        frontend_config["ALERT_REPORTS_NOTIFICATION_METHODS"] = app.config[
+            "ALERT_REPORTS_NOTIFICATION_METHODS"
+        ]
+    elif app.config.get("SLACK_API_TOKEN"):
         frontend_config["ALERT_REPORTS_NOTIFICATION_METHODS"] = [
             ReportRecipientType.EMAIL,
             ReportRecipientType.SLACK,

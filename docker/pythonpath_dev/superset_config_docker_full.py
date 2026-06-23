@@ -1,7 +1,8 @@
-"""GeoSet overrides for the full Kubernetes deployment (Redis + Celery).
+"""GeoSet overrides for the full Docker Compose stack (Redis + Celery).
 
-Mounted as a ConfigMap into the container as superset_config_docker.py
-so it is auto-imported by the upstream base config.
+Loaded automatically by superset_config.py via ``from superset_config_docker import *``.
+docker-compose.full.yml mounts this file as superset_config_docker.py inside
+the container so it is picked up without touching the upstream base config.
 """
 
 import logging
@@ -19,7 +20,7 @@ MATTERMOST_WEBHOOK_URL = os.getenv(
     "MATTERMOST_WEBHOOK_URL",
     "https://mattermost.teamraft.com/hooks/q7co9uqot7g398cnzg63kfxaay",
 )
-WEBDRIVER_BASEURL = "http://superset-web:8088/"
+WEBDRIVER_BASEURL = "http://superset:8088/"
 WEBDRIVER_BASEURL_USER_FRIENDLY = WEBDRIVER_BASEURL
 
 # Fallback executor for charts without owners (e.g. GeoSet example charts)

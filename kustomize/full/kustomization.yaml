@@ -26,6 +26,10 @@ configMapGenerator:
 generatorOptions:
   disableNameSuffixHash: true
 
+images:
+  - name: jmeegan607/geoset
+    newTag: full
+
 # Patch superset-web: bump replicas to 2 and wait for Redis
 patches:
   - path: superset-web-patch.yaml

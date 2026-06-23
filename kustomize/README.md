@@ -7,13 +7,13 @@ Kubernetes manifests for deploying GeoSet, organized as Kustomize overlays.
 | Overlay | Description | Use case |
 |---------|-------------|----------|
 | **base** | PostGIS, metadata DB, Superset web, sample data ingest. No Redis or Celery. | Local/dev clusters, quick demos |
-| **full** | Everything in base + Redis, Celery workers, Celery beat, cache warmup configuration, Flux GitOps | Staging/production starting point |
+| **full** | Everything in base + Redis, Celery workers, Celery beat, cache warmup/report configuration, Flux GitOps | Staging/production starting point |
 
 ## Prerequisites
 
 - A Kubernetes cluster (minikube, kind, EKS, etc.)
 - `kubectl` installed and configured
-- Container images pushed (default: `jmeegan607/geoset`, `ebienstock/geoset:data-ingest-latest`)
+- Container images pushed (default: `jmeegan607/geoset`, `jmeegan607/geoset:full`, `ebienstock/geoset:data-ingest-latest`)
 
 ## Setup
 
@@ -53,7 +53,15 @@ You generally don't need to change these unless you're pointing at external data
 
 ### 3. Update container images (if needed)
 
-The base and full overlays use the image tags from the individual manifests. Add an `images` block to the relevant `kustomization.yaml` if you need to pin a different tag for your environment.
+The full overlay pins the Superset image tag in `full/kustomization.yaml`:
+
+```yaml
+images:
+  - name: jmeegan607/geoset
+    newTag: full
+```
+
+Change `newTag` to use a different version. The base overlay leaves the image tag unset so it uses the image tag from the individual manifests.
 
 ## Deploy
 
@@ -100,7 +108,8 @@ The full overlay adds on top of base:
 
 - **Redis** — caching backend and Celery message broker
 - **Celery workers** (2 replicas) — async query execution
-- **Celery beat** — scheduled tasks including cache warmup
+- **Celery beat** — scheduled tasks including cache warmup and report generation
+- **Alerts & Reports config** — enables Superset report generation and Mattermost notifications; set `MATTERMOST_WEBHOOK_URL` in `config/superset-env-patch.env` or your secret management flow
 - **Flux GitOps** — auto-syncs from `raft-tech/GeoSet` main branch
 
 It also patches `superset-web` to 2 replicas, mounts the full deployment Superset config override, and adds a Redis readiness check to its init container.
