@@ -7,7 +7,6 @@ import {
   createCategoricalLegendEntry,
   createMetricLegendEntry,
   createLegendGroup,
-  createSizeLegend,
   createCategoryEntry,
   RED,
   GREEN,
@@ -591,14 +590,36 @@ describe('MultiLegend', () => {
     });
   });
 
-  describe('single-value size legend (startSize === endSize)', () => {
-    const collapsedSizeLegend = createSizeLegend({
-      startSize: 17,
-      endSize: 17,
-      legendName: 'Single Point',
+  describe('empty layer state', () => {
+    it('shows checkbox and "no data" label instead of spinner for empty entry', () => {
+      renderWithTheme(
+        <MultiLegend
+          legendGroups={[
+            createLegendGroup({
+              displayTitle: 'Empty Group',
+              entries: [
+                {
+                  sliceId: '1',
+                  legendEntry: createSimpleLegendEntry({
+                    legendName: 'Empty Layer',
+                    empty: true,
+                  }),
+                },
+              ],
+            }),
+            createLegendGroup({ displayTitle: 'Other' }),
+          ]}
+          layerVisibility={EMPTY_VISIBILITY}
+          onToggleLayerVisibility={jest.fn()}
+        />,
+      );
+      userEvent.click(screen.getByText('Legend'));
+      expect(screen.getByText('Empty Layer')).toBeInTheDocument();
+      expect(screen.getByText('Visible but Empty')).toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 
-    it('simple entry shows swatch and name when sizeEntry has equal sizes', () => {
+    it('does not show "no data" label for non-empty entry', () => {
       renderWithTheme(
         <MultiLegend
           legendGroups={[
@@ -607,8 +628,7 @@ describe('MultiLegend', () => {
                 {
                   sliceId: '1',
                   legendEntry: createSimpleLegendEntry({
-                    legendName: 'Simple Single',
-                    sizeEntry: collapsedSizeLegend,
+                    legendName: 'Normal Layer',
                   }),
                 },
               ],
@@ -618,117 +638,156 @@ describe('MultiLegend', () => {
         />,
       );
       userEvent.click(screen.getByText('Legend'));
-      // Name appears in both the simple row and the single-value size swatch row
-      expect(
-        screen.getAllByText('Simple Single').length,
-      ).toBeGreaterThanOrEqual(1);
-      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
+      expect(screen.getByText('Normal Layer')).toBeInTheDocument();
+      expect(screen.queryByText('Visible but Empty')).not.toBeInTheDocument();
     });
 
-    it('combined metric+size shows swatch instead of graduated icons', () => {
+    it('group header shows checkbox (not spinner) when all entries are empty', () => {
       renderWithTheme(
         <MultiLegend
           legendGroups={[
             createLegendGroup({
+              displayTitle: 'All Empty',
               entries: [
                 {
                   sliceId: '1',
-                  legendEntry: createMetricLegendEntry({
-                    legendName: 'Combined Single',
-                    isCombinedMetricSize: true,
-                    sizeEntry: collapsedSizeLegend,
-                  }),
+                  legendEntry: createSimpleLegendEntry({ empty: true }),
+                },
+                {
+                  sliceId: '2',
+                  legendEntry: createSimpleLegendEntry({ empty: true }),
                 },
               ],
             }),
+            createLegendGroup({ displayTitle: 'Other' }),
           ]}
           layerVisibility={EMPTY_VISIBILITY}
+          onToggleLayerVisibility={jest.fn()}
         />,
       );
       userEvent.click(screen.getByText('Legend'));
-      expect(screen.getByText('Combined Single')).toBeInTheDocument();
-      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
+      // Group header should render a checkbox, not a loading spinner
+      const checkboxes = screen.getAllByRole('checkbox');
+      expect(checkboxes.length).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 
-    it('standalone size legend shows swatch instead of graduated icons', () => {
+    it('group header checkbox is present when some entries have data', () => {
       renderWithTheme(
         <MultiLegend
           legendGroups={[
             createLegendGroup({
+              displayTitle: 'Mixed',
+              entries: [
+                {
+                  sliceId: '1',
+                  legendEntry: createSimpleLegendEntry({ empty: true }),
+                },
+                {
+                  sliceId: '2',
+                  legendEntry: createSimpleLegendEntry({ empty: false }),
+                },
+              ],
+            }),
+            createLegendGroup({ displayTitle: 'Other' }),
+          ]}
+          layerVisibility={EMPTY_VISIBILITY}
+          onToggleLayerVisibility={jest.fn()}
+        />,
+      );
+      userEvent.click(screen.getByText('Legend'));
+      const checkboxes = screen.getAllByRole('checkbox');
+      expect(checkboxes.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('shows spinner when loading, even if empty is also true', () => {
+      renderWithTheme(
+        <MultiLegend
+          legendGroups={[
+            createLegendGroup({
+              displayTitle: 'Loading',
               entries: [
                 {
                   sliceId: '1',
                   legendEntry: createSimpleLegendEntry({
-                    legendName: 'Standalone Single',
-                    sizeEntry: collapsedSizeLegend,
-                    simpleStyle: undefined,
+                    loading: true,
+                    empty: true,
+                  }),
+                },
+              ],
+            }),
+            createLegendGroup({
+              displayTitle: 'Other',
+              entries: [
+                {
+                  sliceId: '2',
+                  legendEntry: createSimpleLegendEntry({
+                    loading: true,
                   }),
                 },
               ],
             }),
           ]}
           layerVisibility={EMPTY_VISIBILITY}
+          onToggleLayerVisibility={jest.fn()}
         />,
       );
       userEvent.click(screen.getByText('Legend'));
-      expect(screen.getByText('Standalone Single')).toBeInTheDocument();
-      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
+      // Both group headers should show spinners, not checkboxes
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+      expect(screen.queryByText('Visible but Empty')).not.toBeInTheDocument();
     });
 
-    it('uses singleValueColor for swatch when provided', () => {
-      renderWithTheme(
+    it('transitions from loading to empty without spinner', () => {
+      const { rerender } = renderWithTheme(
         <MultiLegend
           legendGroups={[
             createLegendGroup({
+              displayTitle: 'Transitioning',
               entries: [
                 {
                   sliceId: '1',
-                  legendEntry: createMetricLegendEntry({
-                    legendName: 'Colored Single',
-                    isCombinedMetricSize: true,
-                    sizeEntry: createSizeLegend({
-                      startSize: 17,
-                      endSize: 17,
-                      singleValueColor: [255, 128, 0, 255],
-                    }),
+                  legendEntry: createSimpleLegendEntry({
+                    legendName: 'Trans Layer',
+                    loading: true,
                   }),
                 },
               ],
             }),
+            createLegendGroup({ displayTitle: 'Other' }),
           ]}
           layerVisibility={EMPTY_VISIBILITY}
+          onToggleLayerVisibility={jest.fn()}
         />,
       );
       userEvent.click(screen.getByText('Legend'));
-      expect(screen.getByText('Colored Single')).toBeInTheDocument();
-      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
-    });
+      expect(screen.queryByText('Visible but Empty')).not.toBeInTheDocument();
 
-    it('renders graduated icons when sizeEntry has different start/end sizes', () => {
-      renderWithTheme(
+      // Re-render with loading finished and empty result
+      rerender(
         <MultiLegend
           legendGroups={[
             createLegendGroup({
+              displayTitle: 'Transitioning',
               entries: [
                 {
                   sliceId: '1',
-                  legendEntry: createMetricLegendEntry({
-                    legendName: 'Ranged Size',
-                    isCombinedMetricSize: true,
-                    sizeEntry: createSizeLegend({
-                      startSize: 5,
-                      endSize: 50,
-                    }),
+                  legendEntry: createSimpleLegendEntry({
+                    legendName: 'Trans Layer',
+                    loading: false,
+                    empty: true,
                   }),
                 },
               ],
             }),
+            createLegendGroup({ displayTitle: 'Other' }),
           ]}
           layerVisibility={EMPTY_VISIBILITY}
+          onToggleLayerVisibility={jest.fn()}
         />,
       );
-      userEvent.click(screen.getByText('Legend'));
-      expect(screen.getByTestId('graduated-icons')).toBeInTheDocument();
+      expect(screen.getByText('Trans Layer')).toBeInTheDocument();
+      expect(screen.getByText('Visible but Empty')).toBeInTheDocument();
     });
   });
 });
