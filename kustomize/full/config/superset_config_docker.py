@@ -5,22 +5,9 @@ so it is auto-imported by the upstream base config.
 """
 
 import logging
-import os
 
 from celery.signals import task_failure, task_postrun, task_prerun
 from superset.tasks.types import ExecutorType, FixedExecutor
-
-# Alerts & Reports
-ALERT_REPORTS_NOTIFICATION_DRY_RUN = False
-ALERT_REPORTS_NOTIFICATION_METHODS = ["Mattermost"]
-WEBDRIVER_TYPE = "chrome"
-FEATURE_FLAGS = {"ALERT_REPORTS": True, "PLAYWRIGHT_REPORTS_AND_THUMBNAILS": True}
-MATTERMOST_WEBHOOK_URL = os.getenv(
-    "MATTERMOST_WEBHOOK_URL",
-    "https://mattermost.teamraft.com/hooks/q7co9uqot7g398cnzg63kfxaay",
-)
-WEBDRIVER_BASEURL = "http://superset-web:8088/"
-WEBDRIVER_BASEURL_USER_FRIENDLY = WEBDRIVER_BASEURL
 
 # Fallback executor for charts without owners (e.g. GeoSet example charts)
 CACHE_WARMUP_EXECUTORS = [ExecutorType.OWNER, FixedExecutor("admin")]

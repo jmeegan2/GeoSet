@@ -45,7 +45,6 @@ export enum NotificationMethodOption {
   Email = 'Email',
   Slack = 'Slack',
   SlackV2 = 'SlackV2',
-  Mattermost = 'Mattermost',
 }
 
 export type SelectValue = {
@@ -163,7 +162,6 @@ export enum RecipientIconName {
   Email = 'Email',
   Slack = 'Slack',
   SlackV2 = 'SlackV2',
-  Mattermost = 'Mattermost',
 }
 export interface AlertsReportsConfig {
   ALERT_REPORTS_DEFAULT_WORKING_TIMEOUT: number;

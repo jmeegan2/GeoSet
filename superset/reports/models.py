@@ -63,7 +63,6 @@ class ReportRecipientType(StrEnum):
     EMAIL = "Email"
     SLACK = "Slack"
     SLACKV2 = "SlackV2"
-    MATTERMOST = "Mattermost"
 
 
 class ReportState(StrEnum):

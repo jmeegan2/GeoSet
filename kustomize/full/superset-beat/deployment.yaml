@@ -28,7 +28,7 @@ spec:
               done
       containers:
         - name: beat
-          image: jmeegan607/geoset:chromium
+          image: jmeegan607/geoset
           imagePullPolicy: Always
           command: ["celery", "--app=superset.tasks.celery_app:app",
                     "beat", "--loglevel=INFO",
