@@ -7,13 +7,13 @@ Kubernetes manifests for deploying GeoSet, organized as Kustomize overlays.
 | Overlay | Description | Use case |
 |---------|-------------|----------|
 | **base** | PostGIS, metadata DB, Superset web, sample data ingest. No Redis or Celery. | Local/dev clusters, quick demos |
-| **full** | Everything in base + Redis, Celery workers, Celery beat (scheduled tasks, cache warmup, report generation), Flux GitOps | Staging/production |
+| **full** | Everything in base + Redis, Celery workers, Celery beat, cache warmup/report configuration, Flux GitOps | Staging/production starting point |
 
 ## Prerequisites
 
 - A Kubernetes cluster (minikube, kind, EKS, etc.)
 - `kubectl` installed and configured
-- Container images pushed (default: `jmeegan607/geoset:6.0.48`, `ebienstock/geoset:data-ingest-latest`)
+- Container images pushed (default: `jmeegan607/geoset`, `jmeegan607/geoset:full`, `ebienstock/geoset:data-ingest-latest`)
 
 ## Setup
 
@@ -53,15 +53,15 @@ You generally don't need to change these unless you're pointing at external data
 
 ### 3. Update container images (if needed)
 
-The image tag is controlled in one place — the `images` block in `base/kustomization.yaml`:
+The full overlay pins the Superset image tag in `full/kustomization.yaml`:
 
 ```yaml
 images:
   - name: jmeegan607/geoset
-    newTag: "6.0.48"
+    newTag: full
 ```
 
-Change `newTag` to use a different version. This applies to all manifests automatically.
+Change `newTag` to use a different version. The base overlay leaves the image tag unset so it uses the image tag from the individual manifests.
 
 ## Deploy
 
@@ -90,19 +90,29 @@ Superset web will be available on port `8088` via the `superset-web` service. To
 kubectl -n geoset port-forward svc/superset-web 8088:8088
 ```
 
+### Validate manifests
+
+The deployment requires a local `secrets.yaml`, which is intentionally gitignored. To render the manifests for review or CI without creating local untracked files, validate against a temporary copy:
+
+```bash
+tmp="$(mktemp -d)"
+cp -R kustomize "$tmp/"
+cp "$tmp/kustomize/base/secrets.yaml.example" "$tmp/kustomize/base/secrets.yaml"
+kubectl kustomize "$tmp/kustomize/base"
+kubectl kustomize "$tmp/kustomize/full"
+```
+
 ## Full overlay extras
 
 The full overlay adds on top of base:
 
 - **Redis** — caching backend and Celery message broker
 - **Celery workers** (2 replicas) — async query execution
-- **Celery beat** — scheduled tasks including cache warmup and automated report generation
-- **MailHog** — in-cluster fake SMTP server for dev/testing alert email delivery (SMTP on port 1025, web UI on port 8025)
-- **Wildfire Alert bootstrap** — one-time Job that seeds a daily "Wildfire Proximity Alert" SQL alert via the Superset REST API after init
-- **SMTP / Alerts & Reports env vars** — pre-configured to use MailHog; swap env vars in `config/superset-env-patch.env` for production SMTP
+- **Celery beat** — scheduled tasks including cache warmup and report generation
+- **Alerts & Reports config** — enables Superset report generation and Mattermost notifications; set `MATTERMOST_WEBHOOK_URL` in `config/superset-env-patch.env` or your secret management flow
 - **Flux GitOps** — auto-syncs from `raft-tech/GeoSet` main branch
 
-It also patches `superset-web` to 2 replicas and adds a Redis readiness check to its init container.
+It also patches `superset-web` to 2 replicas, mounts the full deployment Superset config override, and adds a Redis readiness check to its init container.
 
 ## Teardown
 
