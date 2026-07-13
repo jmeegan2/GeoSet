@@ -84,7 +84,7 @@ cron-descriptor==2.0.6
     # via apache-superset
 croniter==6.0.0
     # via apache-superset
-cryptography==44.0.3
+cryptography==49.0.0
     # via
     #   apache-superset
     #   authlib
@@ -230,7 +230,7 @@ marshmallow-sqlalchemy==1.4.0
     #   flask-appbuilder
 mdurl==0.1.2
     # via markdown-it-py
-msgpack==1.0.8
+msgpack==1.2.1
     # via apache-superset
 msgspec==0.20.0
     # via flask-session
@@ -276,7 +276,7 @@ parsedatetime==2.6
     # via apache-superset
 pgsanity==0.3.0
     # via apache-superset
-pillow==11.3.0
+pillow==12.3.0
     # via apache-superset
 platformdirs==4.5.1
     # via requests-cache
@@ -290,7 +290,7 @@ prompt-toolkit==3.0.52
     # via click-repl
 psycopg2-binary==2.9.6
     # via apache-superset
-pyarrow==18.1.0
+pyarrow==24.0.0
     # via apache-superset
 pyasn1==0.6.2
     # via
@@ -309,7 +309,7 @@ pyjwt==2.10.1
     #   flask-jwt-extended
 pynacl==1.6.2
     # via paramiko
-pyopenssl==25.1.0
+pyopenssl==26.3.0
     # via shillelagh
 pyparsing==3.3.2
     # via apache-superset
