@@ -10,8 +10,13 @@ default:
 workflow:
   rules:
     - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
+      # The injected Sign Image job expects this legacy tag shape:
+      # $CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT.
+      # Use the pipeline ID as SPRINT_NUMBER so each signed image tag is unique.
       variables:
-        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:release"
+        SPRINT_NUMBER: "$CI_PIPELINE_ID"
+        VALUE_INCREMENT: "0"
+        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT"
     - when: always
       variables:
         FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID"
@@ -33,10 +38,15 @@ Build Dev Image and Push to Registry:
     # Pass version as build argument
     - buildah build --no-cache --build-arg BUILD_VERSION="$CI_PIPELINE_ID" --target production -t $FULL_IMAGE_NAME .
     - buildah push $FULL_IMAGE_NAME
+    - echo "FULL_IMAGE_NAME=$FULL_IMAGE_NAME" > security.env
+    - echo "CS_IMAGE=$FULL_IMAGE_NAME" >> security.env
+  artifacts:
+    reports:
+      dotenv: security.env
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       variables:
-        FULL_IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID
+        FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$CI_PIPELINE_ID"
 
 Build Release Image and Push to Registry:
   image:
@@ -76,11 +86,17 @@ Build Release Image and Push to Registry:
       fi
       echo "Using increment: $INCREMENT"
     - VERSION_TAG="$MONTH_ABBR$YEAR-v$INCREMENT"
-    - FULL_IMAGE_NAME="$CI_REGISTRY/$CI_PROJECT_PATH:$VERSION_TAG"
-    - echo "Building release image with tag $VERSION_TAG"
+    - VERSION_IMAGE_NAME="$CI_REGISTRY/$CI_PROJECT_PATH:$VERSION_TAG"
+    - echo "Building release image with tags $VERSION_TAG and release"
     # Pass version as build argument
-    - buildah build --no-cache --build-arg BUILD_VERSION="$VERSION_TAG" --target production -t $FULL_IMAGE_NAME .
+    - buildah build --no-cache --build-arg BUILD_VERSION="$VERSION_TAG" --target production -t $VERSION_IMAGE_NAME -t $FULL_IMAGE_NAME .
+    - buildah push $VERSION_IMAGE_NAME
     - buildah push $FULL_IMAGE_NAME
+    - echo "FULL_IMAGE_NAME=$FULL_IMAGE_NAME" > security.env
+    - echo "CS_IMAGE=$FULL_IMAGE_NAME" >> security.env
+  artifacts:
+    reports:
+      dotenv: security.env
   rules:
     - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
 
@@ -100,4 +116,7 @@ Trivy Container Scan:
   script:
     - trivy image --severity HIGH,CRITICAL --exit-code 1 "$FULL_IMAGE_NAME"
   allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
 
