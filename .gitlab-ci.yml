@@ -15,7 +15,7 @@ workflow:
       # Use the pipeline ID as SPRINT_NUMBER so each signed image tag is unique.
       variables:
         SPRINT_NUMBER: "$CI_PIPELINE_ID"
-        VALUE_INCREMENT: "0"
+        VALUE_INCREMENT: "release"
         FULL_IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_PATH:$SPRINT_NUMBER.$VALUE_INCREMENT"
     - when: always
       variables:
@@ -57,40 +57,12 @@ Build Release Image and Push to Registry:
       optional: true
   script:
     - set -x
-    - YEAR=$(date +%Y)
-    - MONTH_ABBR=$(date +%b)
     - echo "$CI_REGISTRY_PASSWORD" | buildah login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
     - export STORAGE_DRIVER=vfs
-    # Query registry for existing tags and determine version increment
-    - |
-      set -x
-      echo "Querying registry via GitLab API"
-      # Use GitLab API to get registry repository ID first
-      REPO_INFO=$(curl -s --header "JOB-TOKEN: $CI_JOB_TOKEN" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories")
-      echo "Repository info: $REPO_INFO"
-      REPO_ID=$(echo "$REPO_INFO" | sed -n 's/.*"id":\([0-9]*\).*/\1/p' | head -1)
-      echo "Repository ID: $REPO_ID"
-      if [ -n "$REPO_ID" ]; then
-        TAGS=$(curl -s --header "JOB-TOKEN: $CI_JOB_TOKEN" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/registry/repositories/$REPO_ID/tags")
-      else
-        TAGS="[]"
-      fi
-      echo "Tags found: $TAGS"
-      # Split tags onto separate lines, then extract increment numbers for current month/year
-      LATEST_INCREMENT=$(echo "$TAGS" | tr ',' '\n' | sed -n "s/.*\"name\":\"$MONTH_ABBR$YEAR-v\([0-9]*\)\".*/\1/p" | sort -n | tail -1)
-      echo "Latest increment for $MONTH_ABBR$YEAR: $LATEST_INCREMENT"
-      if [ -z "$LATEST_INCREMENT" ]; then
-        INCREMENT=1
-      else
-        INCREMENT=$((LATEST_INCREMENT + 1))
-      fi
-      echo "Using increment: $INCREMENT"
-    - VERSION_TAG="$MONTH_ABBR$YEAR-v$INCREMENT"
-    - VERSION_IMAGE_NAME="$CI_REGISTRY/$CI_PROJECT_PATH:$VERSION_TAG"
-    - echo "Building release image with tags $VERSION_TAG and release"
-    # Pass version as build argument
-    - buildah build --no-cache --build-arg BUILD_VERSION="$VERSION_TAG" --target production -t $VERSION_IMAGE_NAME -t $FULL_IMAGE_NAME .
-    - buildah push $VERSION_IMAGE_NAME
+    - RELEASE_TAG="$SPRINT_NUMBER.$VALUE_INCREMENT"
+    - echo "Building release image with tag $RELEASE_TAG"
+    # Bake the same version string that the signed/deployed image tag uses.
+    - buildah build --no-cache --build-arg BUILD_VERSION="$RELEASE_TAG" --target production -t $FULL_IMAGE_NAME .
     - buildah push $FULL_IMAGE_NAME
     - echo "FULL_IMAGE_NAME=$FULL_IMAGE_NAME" > security.env
     - echo "CS_IMAGE=$FULL_IMAGE_NAME" >> security.env
