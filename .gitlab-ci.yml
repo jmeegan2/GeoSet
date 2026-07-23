@@ -91,4 +91,3 @@ Trivy Container Scan:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $MAIN_BRANCH
-
