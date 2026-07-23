@@ -63,7 +63,7 @@ These files need both GeoSet's new code AND DART-specific additions preserved:
 | File | DART customization to preserve |
 |------|-------------------------------|
 | `CLAUDE.md` | DART description, GitLab instructions (not GitHub/GeoSet) |
-| `superset/config.py` | `APP_NAME = "ACF Situational Awareness Tool"`, `THEME_DARK = None`, `ENABLE_UI_THEME_ADMINISTRATION = False` |
+| `superset/config.py` | `APP_NAME = "ACF Situational Awareness Tool"`, `FAVICONS` pointing to `favicon.png` (not `geoset-favicon.svg`), `THEME_DARK = None`, `ENABLE_UI_THEME_ADMINISTRATION = False` |
 | `superset/initialization/__init__.py` | `login_help_blueprint` registration |
 | `superset/templates/superset/spa.html` | `{{ appbuilder.app_name }}` fallback in `<title>` |
 | `superset-frontend/packages/superset-ui-core/src/theme/Theme.tsx` | `brandLogoAlt: 'ACF Situational Awareness Tool'`, `brandLogoUrl: '/static/assets/images/superset-logo-horiz.png'` |
@@ -131,6 +131,7 @@ git diff --name-only --diff-filter=U
 
 # Verify DART customizations are intact
 grep "ACF Situational Awareness Tool" superset/config.py
+grep "favicon.png" superset/config.py  # must NOT reference geoset-favicon.svg
 grep "login_help_blueprint" superset/initialization/__init__.py
 grep "fire" superset-frontend/plugins/geoset-map-chart/src/utils/svgIcons/index.ts
 grep "IdcardOutlined" superset-frontend/packages/superset-ui-core/src/components/Icons/AntdEnhanced.tsx

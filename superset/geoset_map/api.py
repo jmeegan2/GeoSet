@@ -51,7 +51,12 @@ class GeoSetMapRestApi(BaseSupersetApi):
         ("v4", "v5"): GeoSetLayerV5Schema.upgrade_from_previous_version,
     }
 
-    method_permission_name = MODEL_API_RW_METHOD_PERMISSION_MAP
+    method_permission_name = {
+        **MODEL_API_RW_METHOD_PERMISSION_MAP,
+        "mapbox_api_key": "read",
+        "validate_schema": "read",
+        "convert_schema": "write",
+    }
     allow_browser_login = True
     class_permission_name = "GeoSetMap"
     resource_name = "geoset_map"
