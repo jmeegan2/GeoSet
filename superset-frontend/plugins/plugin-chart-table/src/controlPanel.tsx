@@ -219,7 +219,7 @@ Options for row limit control
 
 export const ROW_LIMIT_OPTIONS_TABLE = [
   10, 50, 100, 250, 500, 1000, 5000, 10000, 50000, 100000, 150000, 200000,
-  250000, 300000, 350000, 400000, 450000, 500000,
+  250000, 300000, 350000, 400000, 450000, 500000, 750000,
 ];
 
 const config: ControlPanelConfig = {

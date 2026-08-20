@@ -37,6 +37,7 @@ import {
 import { isEmpty } from 'lodash';
 import { TableChartFormData } from './types';
 import { updateTableOwnState } from './DataTable/utils/externalAPIs';
+import buildServerSearchFilter from './utils/buildServerSearchFilter';
 
 /**
  * Infer query mode from form data. If `all_columns` is set, then raw records mode,
@@ -321,18 +322,15 @@ const buildQuery: BuildQuery<TableChartFormData> = (
     }
 
     if (formData.server_pagination) {
-      // Add search filter if search text exists
-      if (ownState.searchText && ownState?.searchColumn) {
+      const serverSearchFilter = buildServerSearchFilter(
+        formData,
+        ownState.searchText as string | undefined,
+        ownState.searchColumn as string | undefined,
+      );
+      if (serverSearchFilter) {
         queryObject = {
           ...queryObject,
-          filters: [
-            ...(queryObject.filters || []),
-            {
-              col: ownState?.searchColumn,
-              op: 'ILIKE',
-              val: `${ownState.searchText}%`,
-            },
-          ],
+          filters: [...(queryObject.filters || []), serverSearchFilter],
         };
       }
     }

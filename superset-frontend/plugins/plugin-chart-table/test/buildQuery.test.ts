@@ -103,6 +103,46 @@ describe('plugin-chart-table', () => {
       expect(query.columns).toEqual(['rawcol']);
       expect(query.post_processing).toEqual([]);
     });
+    it('should use an adhoc column SQL expression for server search', () => {
+      const { queries } = buildQuery(
+        {
+          ...basicFormData,
+          slice_id: 9,
+          query_mode: QueryMode.Raw,
+          server_pagination: true,
+          server_page_length: 10,
+          row_limit: 500000,
+          all_columns: [
+            {
+              expressionType: 'SQL',
+              label: 'Program Name',
+              sqlExpression: 'facility_name',
+            },
+          ],
+        },
+        {
+          ownState: {
+            searchColumn: 'Program Name',
+            searchText: 'Wash',
+          },
+        } as any,
+      );
+
+      expect(queries[0].filters).toContainEqual({
+        col: {
+          expressionType: 'SQL',
+          label: 'Program Name',
+          sqlExpression: 'facility_name',
+        },
+        op: 'ILIKE',
+        val: 'Wash%',
+      });
+      expect(queries[1]).toMatchObject({
+        is_rowcount: true,
+        row_limit: 500000,
+        row_offset: 0,
+      });
+    });
     it('should prefer extra_form_data.time_grain_sqla over formData.time_grain_sqla', () => {
       const query = buildQuery({
         ...basicFormData,

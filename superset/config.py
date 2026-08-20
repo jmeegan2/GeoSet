@@ -1077,7 +1077,7 @@ MAPBOX_API_KEY = os.environ.get("MAPBOX_API_KEY", "")
 SQL_MAX_ROW = 100000
 
 # Maximum number of rows for any query with Server Pagination in Table Viz type
-TABLE_VIZ_MAX_ROW_SERVER = 500000
+TABLE_VIZ_MAX_ROW_SERVER = 750000
 
 
 # Maximum number of rows displayed in SQL Lab UI

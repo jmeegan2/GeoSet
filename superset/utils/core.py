@@ -1863,8 +1863,8 @@ def apply_max_row_limit(
     is enabled, defaults to None
     :return: Capped row limit
 
-    >>> apply_max_row_limit(600000, server_pagination=True)  # Server pagination
-    500000
+    >>> apply_max_row_limit(800000, server_pagination=True)  # Server pagination
+    750000
     >>> apply_max_row_limit(600000, server_pagination=False)  # No pagination
     50000
     >>> apply_max_row_limit(5000)  # No server_pagination specified
