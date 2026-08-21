@@ -241,7 +241,21 @@ const buildQuery: BuildQuery<TableChartFormData> = (
     let sortByFromOwnState: QueryFormOrderBy[] | undefined;
     if (Array.isArray(ownState?.sortBy) && ownState?.sortBy.length > 0) {
       const sortByItem = ownState?.sortBy[0];
-      sortByFromOwnState = [[sortByItem?.key, !sortByItem?.desc]];
+      const configuredSortColumn = (formData.all_columns || []).find(
+        column =>
+          typeof column === 'object' &&
+          column !== null &&
+          'label' in column &&
+          column.label === sortByItem?.key,
+      );
+      const sortColumn =
+        configuredSortColumn &&
+        typeof configuredSortColumn === 'object' &&
+        'sqlExpression' in configuredSortColumn &&
+        configuredSortColumn.sqlExpression
+          ? configuredSortColumn.sqlExpression
+          : sortByItem?.key;
+      sortByFromOwnState = [[sortColumn, !sortByItem?.desc]];
     }
 
     let queryObject = {

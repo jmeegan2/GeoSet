@@ -143,6 +143,36 @@ describe('plugin-chart-table', () => {
         row_offset: 0,
       });
     });
+    it('should use the SQL expression when sorting a labeled column', () => {
+      const { queries } = buildQuery(
+        {
+          ...basicFormData,
+          query_mode: QueryMode.Raw,
+          server_pagination: true,
+          server_page_length: 10,
+          all_columns: [
+            {
+              expressionType: 'SQL',
+              label: 'Disaster Closeout Date',
+              sqlExpression: 'disaster_closeout_date',
+            },
+          ],
+        },
+        {
+          ownState: {
+            sortBy: [
+              {
+                id: '0',
+                key: 'Disaster Closeout Date',
+                desc: true,
+              },
+            ],
+          },
+        } as any,
+      );
+
+      expect(queries[0].orderby).toEqual([['disaster_closeout_date', false]]);
+    });
     it('should prefer extra_form_data.time_grain_sqla over formData.time_grain_sqla', () => {
       const query = buildQuery({
         ...basicFormData,

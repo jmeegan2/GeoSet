@@ -2005,10 +2005,11 @@ class ExploreMixin:  # pylint: disable=too-many-public-methods
                     sqla_col = self.adhoc_column_to_sqla(
                         flt_col,
                         force_type_check=True,
-                        # Required when validating ad hoc filters against
-                        # Jinja-templated datasets.
-                        template_processor=template_processor,
                     )
+                    # Retain metadata when an ad hoc column references a known
+                    # dataset column so downstream filters preserve type-aware
+                    # handling.
+                    col_obj = columns_by_name.get(flt_col.get("sqlExpression"))
                     applied_adhoc_filters_columns.append(flt_col)
                 except ColumnNotFoundException:
                     rejected_adhoc_filters_columns.append(flt_col)
