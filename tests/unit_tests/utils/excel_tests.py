@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import patch
 
 import pandas as pd
@@ -31,7 +31,12 @@ def test_timezone_conversion() -> None:
     """
     df = pd.DataFrame({"dt": [datetime(2023, 1, 1, 0, 0, tzinfo=timezone.utc)]})
     apply_column_types(df, [GenericDataType.TEMPORAL])
-    contents = df_to_excel(df)
+    contents = df_to_excel(
+        df,
+        writer_kwargs={
+            "engine_kwargs": {"options": {"constant_memory": True}},
+        },
+    )
     assert pd.read_excel(contents)["dt"][0] == "2023-01-01 00:00:00+00:00"
 
 
@@ -133,7 +138,17 @@ def test_column_data_types_with_large_numeric_values():
 
 
 def test_df_to_excel_passes_writer_kwargs() -> None:
-    df = pd.DataFrame({"url": ["https://example.com"]})
+    df = pd.DataFrame(
+        {
+            "name": ["first", "second", "third"],
+            "url": [
+                "https://example.com/1",
+                "https://example.com/2",
+                "https://example.com/3",
+            ],
+            "value": [10, 20, 30],
+        }
+    )
     writer_kwargs = {
         "engine_kwargs": {
             "options": {
@@ -145,5 +160,75 @@ def test_df_to_excel_passes_writer_kwargs() -> None:
     with patch("superset.utils.excel.pd.ExcelWriter", wraps=pd.ExcelWriter) as writer:
         contents = df_to_excel(df, writer_kwargs=writer_kwargs)
 
-    assert pd.read_excel(contents)["url"].tolist() == ["https://example.com"]
+    result = pd.read_excel(contents, index_col=0)
+
+    pd.testing.assert_frame_equal(result, df)
     assert writer.call_args.kwargs["engine_kwargs"] == writer_kwargs["engine_kwargs"]
+
+
+def test_df_to_excel_preserves_dates() -> None:
+    df = pd.DataFrame(
+        {
+            "date": [date(2024, 1, 2), date(2025, 3, 4)],
+            "datetime": [
+                datetime(2024, 1, 2, 3, 4, 5),
+                datetime(2025, 3, 4, 5, 6, 7),
+            ],
+        }
+    )
+
+    with patch(
+        "superset.utils.excel_optimized_for_large_exports."
+        "EXCEL_CONSTANT_MEMORY_ROW_THRESHOLD",
+        1,
+    ):
+        contents = df_to_excel(df)
+    result = pd.read_excel(contents, index_col=0)
+
+    assert result["date"].dt.date.tolist() == df["date"].tolist()
+    assert result["datetime"].tolist() == df["datetime"].tolist()
+
+
+def test_df_to_excel_uses_pandas_below_constant_memory_threshold() -> None:
+    df = pd.DataFrame({"first": [1, 2, 3], "second": [4, 5, 6]})
+
+    with patch(
+        "superset.utils.excel.pd.DataFrame.to_excel", wraps=df.to_excel
+    ) as export:
+        contents = df_to_excel(df)
+
+    pd.testing.assert_frame_equal(pd.read_excel(contents, index_col=0), df)
+    export.assert_called_once()
+
+
+def test_df_to_excel_falls_back_for_unsupported_values() -> None:
+    df = pd.DataFrame({"value": [{"key": "value"}, [1, 2], float("inf")]})
+
+    with patch(
+        "superset.utils.excel_optimized_for_large_exports."
+        "EXCEL_CONSTANT_MEMORY_ROW_THRESHOLD",
+        1,
+    ):
+        contents = df_to_excel(df)
+
+    assert pd.read_excel(contents, index_col=0)["value"].tolist() == [
+        "{'key': 'value'}",
+        "[1, 2]",
+        "inf",
+    ]
+
+
+def test_df_to_excel_falls_back_for_unsupported_options() -> None:
+    df = pd.DataFrame({"value": [1, 2, 3]})
+
+    with patch(
+        "superset.utils.excel_optimized_for_large_exports."
+        "EXCEL_CONSTANT_MEMORY_ROW_THRESHOLD",
+        1,
+    ):
+        contents = df_to_excel(
+            df,
+            freeze_panes=(1, 0),
+        )
+
+    pd.testing.assert_frame_equal(pd.read_excel(contents, index_col=0), df)

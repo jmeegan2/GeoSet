@@ -20,6 +20,10 @@ from typing import Any
 import pandas as pd
 
 from superset.utils.core import GenericDataType
+from superset.utils.excel_optimized_for_large_exports import (
+    can_use_optimized_excel_export,
+    df_to_optimized_excel,
+)
 
 
 def quote_formulas(df: pd.DataFrame) -> pd.DataFrame:
@@ -41,12 +45,15 @@ def quote_formulas(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def df_to_excel(df: pd.DataFrame, **kwargs: Any) -> Any:
-    output = io.BytesIO()
     writer_kwargs = kwargs.pop("writer_kwargs", {})
 
     # make sure formulas are quoted, to prevent malicious injections
     df = quote_formulas(df)
 
+    if can_use_optimized_excel_export(df, kwargs):
+        return df_to_optimized_excel(df, writer_kwargs, kwargs)
+
+    output = io.BytesIO()
     # pylint: disable=abstract-class-instantiated
     with pd.ExcelWriter(output, engine="xlsxwriter", **writer_kwargs) as writer:
         df.to_excel(writer, **kwargs)
