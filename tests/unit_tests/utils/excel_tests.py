@@ -16,6 +16,7 @@
 # under the License.
 
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
@@ -129,3 +130,20 @@ def test_column_data_types_with_large_numeric_values():
         "1100108628127863",
         "18014398509481984",
     ]
+
+
+def test_df_to_excel_passes_writer_kwargs() -> None:
+    df = pd.DataFrame({"url": ["https://example.com"]})
+    writer_kwargs = {
+        "engine_kwargs": {
+            "options": {
+                "strings_to_urls": False,
+            },
+        },
+    }
+
+    with patch("superset.utils.excel.pd.ExcelWriter", wraps=pd.ExcelWriter) as writer:
+        contents = df_to_excel(df, writer_kwargs=writer_kwargs)
+
+    assert pd.read_excel(contents)["url"].tolist() == ["https://example.com"]
+    assert writer.call_args.kwargs["engine_kwargs"] == writer_kwargs["engine_kwargs"]

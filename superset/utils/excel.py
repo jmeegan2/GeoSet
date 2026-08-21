@@ -42,12 +42,13 @@ def quote_formulas(df: pd.DataFrame) -> pd.DataFrame:
 
 def df_to_excel(df: pd.DataFrame, **kwargs: Any) -> Any:
     output = io.BytesIO()
+    writer_kwargs = kwargs.pop("writer_kwargs", {})
 
     # make sure formulas are quoted, to prevent malicious injections
     df = quote_formulas(df)
 
     # pylint: disable=abstract-class-instantiated
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    with pd.ExcelWriter(output, engine="xlsxwriter", **writer_kwargs) as writer:
         df.to_excel(writer, **kwargs)
 
     return output.getvalue()
