@@ -974,19 +974,9 @@ ALLOWED_EXTENSIONS = {*EXCEL_EXTENSIONS, *CSV_EXTENSIONS, *COLUMNAR_EXTENSIONS}
 CSV_EXPORT = {"encoding": "utf-8-sig"}
 
 # Excel Options: key/value pairs that will be passed as argument to DataFrame.to_excel
-# method. The optional writer_kwargs key is passed to pandas.ExcelWriter.
+# method.
 # note: index option should not be overridden
-EXCEL_EXPORT: dict[str, Any] = {
-    "writer_kwargs": {
-        "engine_kwargs": {
-            "options": {
-                "constant_memory": True,
-                "strings_to_formulas": False,
-                "strings_to_urls": False,
-            },
-        },
-    },
-}
+EXCEL_EXPORT: dict[str, Any] = {}
 
 # ---------------------------------------------------
 # Time grain configurations
