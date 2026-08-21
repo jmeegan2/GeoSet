@@ -135,7 +135,7 @@ describe('plugin-chart-table', () => {
           sqlExpression: 'facility_name',
         },
         op: 'ILIKE',
-        val: 'Wash%',
+        val: '%Wash%',
       });
       expect(queries[1]).toMatchObject({
         is_rowcount: true,

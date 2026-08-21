@@ -44,6 +44,6 @@ export default function buildServerSearchFilter(
   return {
     col: searchColumn,
     op: 'ILIKE' as const,
-    val: `${searchText}%`,
+    val: `%${searchText}%`,
   };
 }
