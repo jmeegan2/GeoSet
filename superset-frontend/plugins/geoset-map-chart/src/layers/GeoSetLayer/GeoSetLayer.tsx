@@ -560,10 +560,25 @@ export function getLayer(
         extensions: [new PathStyleExtension({ dash: isDashed })],
         ...baseLayerProps,
       });
-    case 'LineString':
+    case 'LineString': {
+      // PathLayer expects one path per datum. Expand MultiLineString features so
+      // each constituent line is rendered while retaining the parent feature's
+      // properties, colors, and interaction metadata.
+      const pathFeatures = sortedFeatures.flatMap(feature => {
+        if (feature.geometry?.type !== 'MultiLineString') return [feature];
+
+        return feature.geometry.coordinates.map(coordinates => ({
+          ...feature,
+          geometry: {
+            type: 'LineString' as const,
+            coordinates,
+          },
+        }));
+      });
+
       return new PathLayer({
         id: `path-layer-${fd.slice_id}`,
-        data: sortedFeatures as Feature<Geometry, GeoJsonProperties>[],
+        data: pathFeatures as Feature<Geometry, GeoJsonProperties>[],
         filled: filled ?? fd.filled,
         stroked: stroked ?? fd.stroked,
         extruded: extruded ?? fd.extruded,
@@ -583,6 +598,7 @@ export function getLayer(
         extensions: [new PathStyleExtension({ dash: isDashed })],
         ...baseLayerProps,
       });
+    }
     // POLYGONS — SolidPolygonLayer (fill) + LineLayer (binary borders)
     // Separated from composite PolygonLayer for direct control and to skip stroke when disabled.
     case 'Polygon': {
