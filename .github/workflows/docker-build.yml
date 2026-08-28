@@ -1,11 +1,7 @@
 name: Docker Build
 
-on:
-  pull_request_target:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
+# Docker builds are currently disabled.
+on: []
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
