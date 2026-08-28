@@ -28,7 +28,7 @@ import {
 import { PathStyleExtension } from '@deck.gl/extensions';
 // ignoring the eslint error below since typescript prefers 'geojson' to '@types/geojson'
 // eslint-disable-next-line import/no-unresolved
-import { Feature, Geometry, GeoJsonProperties } from 'geojson';
+import { Feature, Geometry, GeoJsonProperties, Position } from 'geojson';
 import {
   t,
   styled,
@@ -567,7 +567,7 @@ export function getLayer(
       const pathFeatures = sortedFeatures.flatMap(feature => {
         if (feature.geometry?.type !== 'MultiLineString') return [feature];
 
-        return feature.geometry.coordinates.map(coordinates => ({
+        return feature.geometry.coordinates.map((coordinates: Position[]) => ({
           ...feature,
           geometry: {
             type: 'LineString' as const,
