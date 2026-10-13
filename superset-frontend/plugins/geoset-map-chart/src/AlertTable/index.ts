@@ -17,6 +17,7 @@
  * under the License.
  */
 import { ChartMetadata, ChartPlugin, t } from '@superset-ui/core';
+import thumbnail from './images/thumbnail.svg';
 import buildQuery from './buildQuery';
 import controlPanel from './controlPanel';
 import transformProps from './transformProps';
@@ -27,6 +28,7 @@ const metadata = new ChartMetadata({
     'Display alert records in a table with row selection for SPOT reporting.',
   ),
   name: t('GeoSet Alert Table'),
+  thumbnail,
   tags: [t('geoset'), t('Alert'), t('Table'), t('Report')],
 });
 
