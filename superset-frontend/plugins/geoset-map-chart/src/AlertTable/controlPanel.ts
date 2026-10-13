@@ -17,7 +17,7 @@
  * under the License.
  */
 import { ControlPanelConfig, sharedControls } from '@superset-ui/chart-controls';
-import { t } from '@superset-ui/core';
+import { t, validateNonEmpty } from '@superset-ui/core';
 
 const columnsControl = {
   ...sharedControls.groupby,
@@ -27,6 +27,7 @@ const columnsControl = {
   freeForm: true,
   allowAll: true,
   default: [],
+  validators: [validateNonEmpty],
 };
 
 const controlPanel: ControlPanelConfig = {
