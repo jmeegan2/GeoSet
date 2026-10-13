@@ -19,12 +19,16 @@
 import { Preset } from '@superset-ui/core';
 import GeoSetMapGeoJsonChartPlugin from './layers/GeoSetLayer';
 import MultiChartPlugin from './GeoSetMultiMap';
+import GeoSetAlertTableChartPlugin from './AlertTable';
 
 export default class GeoSetMapChartPreset extends Preset {
   constructor() {
     super({
       name: 'geoset map charts',
       plugins: [
+        new GeoSetAlertTableChartPlugin().configure({
+          key: 'deck_geoset_alert_table',
+        }),
         new GeoSetMapGeoJsonChartPlugin().configure({
           key: 'deck_geoset_map_layer',
         }),

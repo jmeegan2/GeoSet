@@ -21,6 +21,7 @@ import './utils/mapboxApi';
 
 export { default as GeoSetMapChartPreset } from './preset';
 export { default as GeoSetMapGeoJsonChartPlugin } from './layers/GeoSetLayer';
+export { default as GeoSetAlertTableChartPlugin } from './AlertTable';
 export { default as MultiChartPlugin } from './GeoSetMultiMap';
 export {
   normalizeDeckSlices,
