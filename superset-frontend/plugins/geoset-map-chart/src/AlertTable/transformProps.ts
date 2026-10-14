@@ -19,10 +19,26 @@
 import { ChartProps, DataRecord } from '@superset-ui/core';
 
 export default function transformProps(chartProps: ChartProps) {
-  const { height, queriesData, width } = chartProps;
+  const { height, queriesData, rawFormData, width } = chartProps;
   const queryData = queriesData[0];
   const data: DataRecord[] = queryData?.data || [];
   const columns = queryData?.colnames || Object.keys(data[0] || {});
+  const buttonText =
+    typeof rawFormData.button_text === 'string' ? rawFormData.button_text : '';
+  const color = rawFormData.header_color;
+  const headerColor =
+    color &&
+    typeof color === 'object' &&
+    'r' in color &&
+    'g' in color &&
+    'b' in color
+      ? {
+          r: Number(color.r),
+          g: Number(color.g),
+          b: Number(color.b),
+          a: 'a' in color ? Number(color.a) : 1,
+        }
+      : undefined;
 
-  return { columns, data, height, width };
+  return { buttonText, columns, data, headerColor, height, width };
 }

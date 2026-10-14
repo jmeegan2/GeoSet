@@ -27,6 +27,7 @@ const data = [
 test('selects individual rows and all rows', () => {
   render(
     <AlertTable
+      buttonText="Create report"
       columns={['title', 'status']}
       data={data}
       height={400}
@@ -52,9 +53,10 @@ test('selects individual rows and all rows', () => {
   expect(secondRow).not.toBeChecked();
 });
 
-test('keeps SPOT report creation unavailable until the report popup is added', () => {
+test('keeps the action button disabled until an action is implemented', () => {
   render(
     <AlertTable
+      buttonText="Create report"
       columns={['title', 'status']}
       data={data}
       height={400}
@@ -62,7 +64,32 @@ test('keeps SPOT report creation unavailable until the report popup is added', (
     />,
   );
 
+  const actionButton = screen.getByRole('button', { name: 'Create report' });
+  expect(actionButton).toBeDisabled();
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select row 1' }));
+  expect(actionButton).toBeEnabled();
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select row 1' }));
+  expect(actionButton).toBeDisabled();
+});
+
+test('applies a custom column header color and button text', () => {
+  render(
+    <AlertTable
+      buttonText="Export selected"
+      columns={['title', 'status']}
+      data={data}
+      headerColor={{ r: 30, g: 100, b: 180, a: 1 }}
+      height={400}
+      width={600}
+    />,
+  );
+
   expect(
-    screen.getByRole('button', { name: 'Create SPOT report' }),
-  ).toBeDisabled();
+    screen.getByRole('button', { name: 'Export selected' }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: 'title' })).toHaveStyle({
+    background: 'rgba(30, 100, 180, 1)',
+  });
 });

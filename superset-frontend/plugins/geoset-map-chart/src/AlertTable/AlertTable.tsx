@@ -22,8 +22,21 @@ import { useEffect, useRef, useState } from 'react';
 export interface AlertTableProps {
   data: DataRecord[];
   columns: string[];
+  buttonText: string;
+  headerColor?: { r: number; g: number; b: number; a?: number };
   height: number;
   width: number;
+}
+
+const DEFAULT_HEADER_COLOR = '#f5f5f5';
+
+function getHeaderColor(
+  color?: AlertTableProps['headerColor'],
+): string {
+  if (!color) {
+    return DEFAULT_HEADER_COLOR;
+  }
+  return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a ?? 1})`;
 }
 
 function displayValue(value: unknown): string {
@@ -39,12 +52,15 @@ function displayValue(value: unknown): string {
 export default function AlertTable({
   data,
   columns,
+  buttonText,
+  headerColor,
   height,
   width,
 }: AlertTableProps) {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const selectAllRef = useRef<HTMLInputElement>(null);
   const allRowsSelected = data.length > 0 && selectedRows.size === data.length;
+  const tableHeaderColor = getHeaderColor(headerColor);
 
   useEffect(() => {
     setSelectedRows(new Set());
@@ -105,11 +121,11 @@ export default function AlertTable({
             : t('Select all')}
         </label>
         <button
-          disabled
-          title={t('SPOT report creation will be available in a future update.')}
+          disabled={selectedRows.size === 0}
+          title={t('This action button is not connected to an action yet.')}
           type="button"
         >
-          {t('Create SPOT report')}
+          {buttonText}
         </button>
       </div>
       <div style={{ flex: 1, overflow: 'auto' }}>
@@ -126,7 +142,7 @@ export default function AlertTable({
               <th
                 aria-label={t('Row selection')}
                 style={{
-                  background: '#f5f5f5',
+                  background: tableHeaderColor,
                   borderBottom: '1px solid #d9d9d9',
                   padding: '8px 12px',
                   position: 'sticky',
@@ -139,7 +155,7 @@ export default function AlertTable({
                   key={column}
                   scope="col"
                   style={{
-                    background: '#f5f5f5',
+                    background: tableHeaderColor,
                     borderBottom: '1px solid #d9d9d9',
                     padding: '8px 12px',
                     position: 'sticky',

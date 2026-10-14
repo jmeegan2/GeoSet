@@ -22,6 +22,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [Unreleased]
+
+### Added
+
+- Required configurable action-button text and optional column-header color for the GeoSet Alert Table
+
 ## [0.20.4](https://github.com/apache/superset/compare/v0.20.3...v0.20.4) (2024-12-10)
 
 **Note:** Version bump only for package @superset-ui/legacy-preset-chart-deckgl

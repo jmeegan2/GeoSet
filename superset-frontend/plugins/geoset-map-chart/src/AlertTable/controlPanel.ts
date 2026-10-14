@@ -41,6 +41,39 @@ const controlPanel: ControlPanelConfig = {
         ['row_limit'],
       ],
     },
+    {
+      label: t('Options'),
+      expanded: true,
+      controlSetRows: [
+        [
+          {
+            name: 'button_text',
+            config: {
+              type: 'TextControl',
+              label: t('Button text'),
+              description: t('Text displayed on the table action button.'),
+              default: '',
+              renderTrigger: true,
+              validators: [validateNonEmpty],
+            },
+          },
+        ],
+        [
+          {
+            name: 'header_color',
+            config: {
+              type: 'ColorPickerControl',
+              label: t('Column header color'),
+              description: t(
+                'Set a background color for the table column headers. Leave unset to use the default color.',
+              ),
+              default: null,
+              renderTrigger: true,
+            },
+          },
+        ],
+      ],
+    },
   ],
 };
 
