@@ -81,15 +81,27 @@ test('applies a custom column header color and button text', () => {
       columns={['title', 'status']}
       data={data}
       headerColor={{ r: 30, g: 100, b: 180, a: 1 }}
+      buttonColor={{ r: 30, g: 100, b: 180, a: 1 }}
       height={400}
       width={600}
     />,
   );
 
-  expect(
-    screen.getByRole('button', { name: 'Export selected' }),
-  ).toBeInTheDocument();
-  expect(screen.getByRole('columnheader', { name: 'title' })).toHaveStyle({
+  const button = screen.getByRole('button', { name: 'Export selected' });
+  expect(button).toBeInTheDocument();
+  expect(button).toHaveStyle({
+    backgroundColor: 'rgba(30, 100, 180, 1)',
+    color: '#fff',
+    fontSize: '14px',
+    padding: '10px 18px',
+  });
+  const header = screen.getByRole('columnheader', { name: 'title' });
+  expect(header).toHaveStyle({
     background: 'rgba(30, 100, 180, 1)',
+    borderBottom: '2px solid #d9d9d9',
+  });
+  expect(header).toHaveStyle({ borderRight: '2px solid #d9d9d9' });
+  expect(screen.getByRole('cell', { name: 'Flood warning' })).toHaveStyle({
+    borderRight: '2px solid #d9d9d9',
   });
 });

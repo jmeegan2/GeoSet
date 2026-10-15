@@ -72,6 +72,20 @@ const controlPanel: ControlPanelConfig = {
             },
           },
         ],
+        [
+          {
+            name: 'button_color',
+            config: {
+              type: 'ColorPickerControl',
+              label: t('Button color'),
+              description: t(
+                'Set a background color for the table action button. Leave unset to use the default color.',
+              ),
+              default: null,
+              renderTrigger: true,
+            },
+          },
+        ],
       ],
     },
   ],
