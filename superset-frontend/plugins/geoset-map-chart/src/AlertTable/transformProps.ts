@@ -39,6 +39,20 @@ export default function transformProps(chartProps: ChartProps) {
           a: 'a' in color ? Number(color.a) : 1,
         }
       : undefined;
+  const buttonColorValue = rawFormData.button_color;
+  const buttonColor =
+    buttonColorValue &&
+    typeof buttonColorValue === 'object' &&
+    'r' in buttonColorValue &&
+    'g' in buttonColorValue &&
+    'b' in buttonColorValue
+      ? {
+          r: Number(buttonColorValue.r),
+          g: Number(buttonColorValue.g),
+          b: Number(buttonColorValue.b),
+          a: 'a' in buttonColorValue ? Number(buttonColorValue.a) : 1,
+        }
+      : undefined;
 
-  return { buttonText, columns, data, headerColor, height, width };
+  return { buttonColor, buttonText, columns, data, headerColor, height, width };
 }

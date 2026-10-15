@@ -24,6 +24,7 @@ export interface AlertTableProps {
   columns: string[];
   buttonText: string;
   headerColor?: { r: number; g: number; b: number; a?: number };
+  buttonColor?: { r: number; g: number; b: number; a?: number };
   height: number;
   width: number;
 }
@@ -37,6 +38,26 @@ function getHeaderColor(
     return DEFAULT_HEADER_COLOR;
   }
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a ?? 1})`;
+}
+
+function getButtonColor(
+  color?: AlertTableProps['buttonColor'],
+): string | undefined {
+  if (!color) {
+    return undefined;
+  }
+  return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a ?? 1})`;
+}
+
+function getButtonTextColor(
+  color?: AlertTableProps['buttonColor'],
+): string | undefined {
+  if (!color) {
+    return undefined;
+  }
+  const luminance =
+    (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
+  return luminance > 0.5 ? '#000' : '#fff';
 }
 
 function displayValue(value: unknown): string {
@@ -54,6 +75,7 @@ export default function AlertTable({
   columns,
   buttonText,
   headerColor,
+  buttonColor,
   height,
   width,
 }: AlertTableProps) {
@@ -61,6 +83,8 @@ export default function AlertTable({
   const selectAllRef = useRef<HTMLInputElement>(null);
   const allRowsSelected = data.length > 0 && selectedRows.size === data.length;
   const tableHeaderColor = getHeaderColor(headerColor);
+  const tableButtonColor = getButtonColor(buttonColor);
+  const tableButtonTextColor = getButtonTextColor(buttonColor);
 
   useEffect(() => {
     setSelectedRows(new Set());
@@ -124,6 +148,17 @@ export default function AlertTable({
           disabled={selectedRows.size === 0}
           title={t('This action button is not connected to an action yet.')}
           type="button"
+          style={{
+            padding: '10px 18px',
+            fontSize: 14,
+            ...(tableButtonColor
+              ? {
+                  backgroundColor: tableButtonColor,
+                  borderColor: tableButtonColor,
+                  color: tableButtonTextColor,
+                }
+              : {}),
+          }}
         >
           {buttonText}
         </button>
@@ -143,20 +178,25 @@ export default function AlertTable({
                 aria-label={t('Row selection')}
                 style={{
                   background: tableHeaderColor,
-                  borderBottom: '1px solid #d9d9d9',
+                  borderBottom: '2px solid #d9d9d9',
+                  borderRight: '2px solid #d9d9d9',
                   padding: '8px 12px',
                   position: 'sticky',
                   top: 0,
                   width: 40,
                 }}
               />
-              {columns.map(column => (
+              {columns.map((column, columnIndex) => (
                 <th
                   key={column}
                   scope="col"
                   style={{
                     background: tableHeaderColor,
-                    borderBottom: '1px solid #d9d9d9',
+                    borderBottom: '2px solid #d9d9d9',
+                    borderRight:
+                      columnIndex === columns.length - 1
+                        ? undefined
+                        : '2px solid #d9d9d9',
                     padding: '8px 12px',
                     position: 'sticky',
                     top: 0,
@@ -173,6 +213,7 @@ export default function AlertTable({
                 <td
                   style={{
                     borderBottom: '1px solid #eee',
+                    borderRight: '2px solid #d9d9d9',
                     padding: '8px 12px',
                   }}
                 >
@@ -185,11 +226,15 @@ export default function AlertTable({
                     type="checkbox"
                   />
                 </td>
-                {columns.map(column => (
+                {columns.map((column, columnIndex) => (
                   <td
                     key={column}
                     style={{
                       borderBottom: '1px solid #eee',
+                      borderRight:
+                        columnIndex === columns.length - 1
+                          ? undefined
+                          : '2px solid #d9d9d9',
                       padding: '8px 12px',
                     }}
                   >
