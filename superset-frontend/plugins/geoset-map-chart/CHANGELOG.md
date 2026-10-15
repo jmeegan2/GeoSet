@@ -28,6 +28,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 - Required configurable action-button text and optional column-header color for the GeoSet Alert Table
 - Added optional action-button color and increased button size and table divider thickness
+- Added optional column-header text color
+- Added configurable per-row expanded details for additional alert fields
 
 ## [0.20.4](https://github.com/apache/superset/compare/v0.20.3...v0.20.4) (2024-12-10)
 
