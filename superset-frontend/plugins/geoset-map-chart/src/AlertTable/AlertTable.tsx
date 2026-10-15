@@ -17,12 +17,19 @@
  * under the License.
  */
 import { t, DataRecord } from '@superset-ui/core';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 export interface AlertTableProps {
   data: DataRecord[];
   columns: string[];
   extendedColumns: string[];
+  rowIdColumn: string;
   buttonText: string;
   headerColor?: { r: number; g: number; b: number; a?: number };
   headerTextColor?: { r: number; g: number; b: number; a?: number };
@@ -72,10 +79,40 @@ function displayValue(value: unknown): string {
   return String(value);
 }
 
+function getRowKey(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim() !== '') {
+    return `string:${value}`;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `number:${value}`;
+  }
+  return undefined;
+}
+
+function compareValues(left: unknown, right: unknown): number {
+  if (left === right) {
+    return 0;
+  }
+  if (left === null || left === undefined || left === '') {
+    return 1;
+  }
+  if (right === null || right === undefined || right === '') {
+    return -1;
+  }
+  if (typeof left === 'number' && typeof right === 'number') {
+    return left - right;
+  }
+  return String(left).localeCompare(String(right), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
 export default function AlertTable({
   data,
   columns,
   extendedColumns,
+  rowIdColumn,
   buttonText,
   headerColor,
   headerTextColor,
@@ -83,10 +120,14 @@ export default function AlertTable({
   height,
   width,
 }: AlertTableProps) {
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [searchText, setSearchText] = useState('');
+  const [sortBy, setSortBy] = useState<{
+    column: string;
+    descending: boolean;
+  } | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
-  const allRowsSelected = data.length > 0 && selectedRows.size === data.length;
   const tableHeaderColor = getHeaderColor(headerColor);
   const tableHeaderTextColor = headerTextColor
     ? `rgba(${headerTextColor.r}, ${headerTextColor.g}, ${headerTextColor.b}, ${headerTextColor.a ?? 1})`
@@ -99,39 +140,104 @@ export default function AlertTable({
     setExpandedRows(new Set());
   }, [data]);
 
+  const rowsWithKeys = useMemo(
+    () =>
+      data.map((row, index) => ({
+        row,
+        index,
+        key: getRowKey(rowIdColumn ? row[rowIdColumn] : undefined),
+      })),
+    [data, rowIdColumn],
+  );
+  const rowIds = rowsWithKeys.map(item => item.key);
+  const hasMissingRowId = !rowIdColumn || rowIds.some(key => !key);
+  const hasDuplicateRowId =
+    !hasMissingRowId && new Set(rowIds).size !== rowIds.length;
+  const rowIdentityIsValid = !hasMissingRowId && !hasDuplicateRowId;
+
+  const visibleRows = useMemo(() => {
+    const search = searchText.trim().toLocaleLowerCase();
+    const filteredRows = rowsWithKeys.filter(({ row }) =>
+      !search
+        ? true
+        : [...columns, ...extendedColumns].some(column =>
+            displayValue(row[column]).toLocaleLowerCase().includes(search),
+          ),
+    );
+    if (!sortBy) {
+      return filteredRows;
+    }
+    return [...filteredRows].sort((left, right) => {
+      const comparison = compareValues(
+        left.row[sortBy.column],
+        right.row[sortBy.column],
+      );
+      return comparison === 0
+        ? left.index - right.index
+        : sortBy.descending
+          ? -comparison
+          : comparison;
+    });
+  }, [columns, extendedColumns, rowsWithKeys, searchText, sortBy]);
+  const visibleRowKeys = visibleRows
+    .map(item => item.key)
+    .filter((key): key is string => Boolean(key));
+  const allVisibleRowsSelected =
+    visibleRowKeys.length > 0 &&
+    visibleRowKeys.every(key => selectedRows.has(key));
+  const someVisibleRowsSelected = visibleRowKeys.some(key =>
+    selectedRows.has(key),
+  );
+
   useEffect(() => {
     if (selectAllRef.current) {
       selectAllRef.current.indeterminate =
-        selectedRows.size > 0 && !allRowsSelected;
+        someVisibleRowsSelected && !allVisibleRowsSelected;
     }
-  }, [allRowsSelected, selectedRows.size]);
+  }, [allVisibleRowsSelected, someVisibleRowsSelected]);
 
-  const toggleRow = (rowIndex: number) => {
+  const toggleRow = (rowKey: string) => {
     setSelectedRows(previous => {
       const next = new Set(previous);
-      if (next.has(rowIndex)) {
-        next.delete(rowIndex);
+      if (next.has(rowKey)) {
+        next.delete(rowKey);
       } else {
-        next.add(rowIndex);
+        next.add(rowKey);
       }
       return next;
     });
   };
 
   const toggleAllRows = () => {
-    setSelectedRows(allRowsSelected ? new Set() : new Set(data.map((_, i) => i)));
-  };
-
-  const toggleExpandedRow = (rowIndex: number) => {
-    setExpandedRows(previous => {
+    setSelectedRows(previous => {
       const next = new Set(previous);
-      if (next.has(rowIndex)) {
-        next.delete(rowIndex);
+      if (allVisibleRowsSelected) {
+        visibleRowKeys.forEach(key => next.delete(key));
       } else {
-        next.add(rowIndex);
+        visibleRowKeys.forEach(key => next.add(key));
       }
       return next;
     });
+  };
+
+  const toggleExpandedRow = (rowKey: string) => {
+    setExpandedRows(previous => {
+      const next = new Set(previous);
+      if (next.has(rowKey)) {
+        next.delete(rowKey);
+      } else {
+        next.add(rowKey);
+      }
+      return next;
+    });
+  };
+
+  const toggleSort = (column: string) => {
+    setSortBy(previous => ({
+      column,
+      descending:
+        previous?.column === column ? !previous.descending : false,
+    }));
   };
 
   return (
@@ -155,18 +261,20 @@ export default function AlertTable({
       >
         <label style={{ alignItems: 'center', display: 'flex', gap: 8 }}>
           <input
-            aria-label={t('Select all rows')}
-            checked={allRowsSelected}
+            aria-label={t('Select all visible rows')}
+            checked={allVisibleRowsSelected}
+            disabled={!rowIdentityIsValid || visibleRowKeys.length === 0}
             onChange={toggleAllRows}
             ref={selectAllRef}
             type="checkbox"
           />
-          {selectedRows.size > 0
-            ? t('%(count)s selected', { count: selectedRows.size })
-            : t('Select all')}
+          {t('Select all visible')}
         </label>
+        <span aria-live="polite">
+          {t('%(count)s selected', { count: selectedRows.size })}
+        </span>
         <button
-          disabled={selectedRows.size === 0}
+          disabled={!rowIdentityIsValid || selectedRows.size === 0}
           title={t('This action button is not connected to an action yet.')}
           type="button"
           style={{
@@ -184,6 +292,46 @@ export default function AlertTable({
           {buttonText}
         </button>
       </div>
+      <div
+        style={{
+          alignItems: 'center',
+          display: 'flex',
+          justifyContent: 'space-between',
+          padding: '8px 12px',
+        }}
+      >
+        <input
+          aria-label={t('Search alerts')}
+          onChange={event => setSearchText(event.target.value)}
+          placeholder={t('Search alerts')}
+          type="search"
+          value={searchText}
+        />
+        <span>
+          {t('%(visible)s of %(total)s alerts', {
+            visible: visibleRows.length,
+            total: data.length,
+          })}
+        </span>
+      </div>
+      {!rowIdentityIsValid && (
+        <div
+          role="alert"
+          style={{
+            background: '#fff2f0',
+            color: '#a8071a',
+            padding: '8px 12px',
+          }}
+        >
+          {hasDuplicateRowId
+            ? t(
+                'The selected row identifier contains duplicate values. Choose a column with a unique value for each alert.',
+              )
+            : t(
+                'Choose a row identifier column with a non-empty value for every alert before selecting rows.',
+              )}
+        </div>
+      )}
       <div style={{ flex: 1, overflow: 'auto' }}>
         <table
           style={{
@@ -212,6 +360,13 @@ export default function AlertTable({
                 <th
                   key={column}
                   scope="col"
+                  aria-sort={
+                    sortBy?.column !== column
+                      ? 'none'
+                      : sortBy.descending
+                        ? 'descending'
+                        : 'ascending'
+                  }
                   style={{
                     background: tableHeaderColor,
                     color: tableHeaderTextColor,
@@ -225,118 +380,146 @@ export default function AlertTable({
                     top: 0,
                   }}
                 >
-                  {column}
+                  <button
+                    onClick={() => toggleSort(column)}
+                    style={{
+                      background: 'transparent',
+                      border: 0,
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      font: 'inherit',
+                      padding: 0,
+                    }}
+                    type="button"
+                  >
+                    {column}
+                    {sortBy?.column === column
+                      ? sortBy.descending
+                        ? ' ↓'
+                        : ' ↑'
+                      : ''}
+                  </button>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {data.map((row, rowIndex) => (
-              <Fragment key={rowIndex}>
-                <tr>
-                  <td
-                    style={{
-                      borderBottom: '1px solid #eee',
-                      borderRight: '2px solid #d9d9d9',
-                      padding: '8px 12px',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <input
-                      aria-label={t('Select row %(rowNumber)s', {
-                        rowNumber: rowIndex + 1,
-                      })}
-                      checked={selectedRows.has(rowIndex)}
-                      onChange={() => toggleRow(rowIndex)}
-                      type="checkbox"
-                    />
-                    {extendedColumns.length > 0 && (
-                      <button
-                        aria-expanded={expandedRows.has(rowIndex)}
-                        aria-label={
-                          expandedRows.has(rowIndex)
-                            ? t('Hide extended data for row %(rowNumber)s', {
-                                rowNumber: rowIndex + 1,
-                              })
-                            : t('Show extended data for row %(rowNumber)s', {
-                                rowNumber: rowIndex + 1,
-                              })
-                        }
-                        onClick={() => toggleExpandedRow(rowIndex)}
-                        style={{
-                          background: 'transparent',
-                          border: 0,
-                          cursor: 'pointer',
-                          fontSize: 14,
-                          marginLeft: 8,
-                          padding: 0,
-                        }}
-                        type="button"
-                      >
-                        {expandedRows.has(rowIndex) ? '▾' : '▸'}
-                      </button>
-                    )}
-                  </td>
-                  {columns.map((column, columnIndex) => (
-                    <td
-                      key={column}
-                      style={{
-                        borderBottom: '1px solid #eee',
-                        borderRight:
-                          columnIndex === columns.length - 1
-                            ? undefined
-                            : '2px solid #d9d9d9',
-                        padding: '8px 12px',
-                      }}
-                    >
-                      {displayValue(row[column])}
-                    </td>
-                  ))}
-                </tr>
-                {expandedRows.has(rowIndex) && extendedColumns.length > 0 && (
+            {visibleRows.map(({ row, index: rowIndex, key }, visibleRowIndex) => {
+              const rowKey = key || `invalid-row-${rowIndex}`;
+              const isSelected = key ? selectedRows.has(key) : false;
+              const isExpanded = expandedRows.has(rowKey);
+              return (
+                <Fragment key={rowKey}>
                   <tr>
                     <td
-                      colSpan={columns.length + 1}
                       style={{
-                        background: '#fafafa',
                         borderBottom: '1px solid #eee',
-                        padding: '12px 20px',
+                        borderRight: '2px solid #d9d9d9',
+                        background: isSelected ? '#e6f4ff' : undefined,
+                        padding: '8px 12px',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      <dl
+                      <input
+                        aria-label={t('Select row %(rowNumber)s', {
+                          rowNumber: visibleRowIndex + 1,
+                        })}
+                        checked={isSelected}
+                        disabled={!rowIdentityIsValid || !key}
+                        onChange={() => key && toggleRow(key)}
+                        type="checkbox"
+                      />
+                      {extendedColumns.length > 0 && (
+                        <button
+                          aria-expanded={isExpanded}
+                          aria-label={
+                            isExpanded
+                              ? t('Hide extended data for row %(rowNumber)s', {
+                                  rowNumber: visibleRowIndex + 1,
+                                })
+                              : t('Show extended data for row %(rowNumber)s', {
+                                  rowNumber: visibleRowIndex + 1,
+                                })
+                          }
+                          onClick={() => toggleExpandedRow(rowKey)}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            marginLeft: 8,
+                            padding: 0,
+                          }}
+                          type="button"
+                        >
+                          {isExpanded ? '▾' : '▸'}
+                        </button>
+                      )}
+                    </td>
+                    {columns.map((column, columnIndex) => (
+                      <td
+                        key={column}
                         style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'max-content 1fr',
-                          gap: '8px 16px',
-                          margin: 0,
+                          borderBottom: '1px solid #eee',
+                          borderRight:
+                            columnIndex === columns.length - 1
+                              ? undefined
+                              : '2px solid #d9d9d9',
+                          background: isSelected ? '#e6f4ff' : undefined,
+                          padding: '8px 12px',
                         }}
                       >
-                        {extendedColumns.map(column => (
-                          <div
-                            key={column}
-                            style={{
-                              display: 'contents',
-                            }}
-                          >
-                            <dt style={{ fontWeight: 600 }}>{column}</dt>
-                            <dd style={{ margin: 0 }}>
-                              {displayValue(row[column])}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </td>
+                        {displayValue(row[column])}
+                      </td>
+                    ))}
                   </tr>
-                )}
-              </Fragment>
-            ))}
-            {data.length === 0 && (
+                  {isExpanded && extendedColumns.length > 0 && (
+                    <tr>
+                      <td
+                        colSpan={columns.length + 1}
+                        style={{
+                          background: '#fafafa',
+                          borderBottom: '1px solid #eee',
+                          padding: '12px 20px',
+                        }}
+                      >
+                        <dl
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'max-content 1fr',
+                            gap: '8px 16px',
+                            margin: 0,
+                          }}
+                        >
+                          {extendedColumns.map(column => (
+                            <div
+                              key={column}
+                              style={{
+                                display: 'contents',
+                              }}
+                            >
+                              <dt style={{ fontWeight: 600 }}>{column}</dt>
+                              <dd style={{ margin: 0 }}>
+                                {displayValue(row[column])}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+            {visibleRows.length === 0 && (
               <tr>
                 <td
                   colSpan={Math.max(columns.length + 1, 1)}
                   style={{ padding: 16, textAlign: 'center' }}
                 >
-                  {t('No alerts found')}
+                  {searchText
+                    ? t('No alerts match your search')
+                    : t('No alerts found')}
                 </td>
               </tr>
             )}

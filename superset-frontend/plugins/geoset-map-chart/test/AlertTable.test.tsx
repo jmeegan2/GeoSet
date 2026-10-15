@@ -20,8 +20,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import AlertTable from '../src/AlertTable/AlertTable';
 
 const data = [
-  { title: 'Flood warning', status: 'Active' },
-  { title: 'Road closure', status: 'Monitoring' },
+  { id: 1, title: 'Flood warning', status: 'Active' },
+  { id: 2, title: 'Road closure', status: 'Monitoring' },
 ];
 
 test('selects individual rows and all rows', () => {
@@ -31,6 +31,7 @@ test('selects individual rows and all rows', () => {
       columns={['title', 'status']}
       data={data}
       extendedColumns={[]}
+      rowIdColumn="id"
       height={400}
       width={600}
     />,
@@ -38,7 +39,9 @@ test('selects individual rows and all rows', () => {
 
   const firstRow = screen.getByRole('checkbox', { name: 'Select row 1' });
   const secondRow = screen.getByRole('checkbox', { name: 'Select row 2' });
-  const selectAll = screen.getByRole('checkbox', { name: 'Select all rows' });
+  const selectAll = screen.getByRole('checkbox', {
+    name: 'Select all visible rows',
+  });
 
   fireEvent.click(firstRow);
   expect(firstRow).toBeChecked();
@@ -61,6 +64,7 @@ test('keeps the action button disabled until an action is implemented', () => {
       columns={['title', 'status']}
       data={data}
       extendedColumns={[]}
+      rowIdColumn="id"
       height={400}
       width={600}
     />,
@@ -83,6 +87,7 @@ test('applies a custom column header color and button text', () => {
       columns={['title', 'status']}
       data={data}
       extendedColumns={[]}
+      rowIdColumn="id"
       headerColor={{ r: 30, g: 100, b: 180, a: 1 }}
       headerTextColor={{ r: 255, g: 255, b: 255, a: 1 }}
       buttonColor={{ r: 30, g: 100, b: 180, a: 1 }}
@@ -113,7 +118,7 @@ test('applies a custom column header color and button text', () => {
 
 test('expands a row to show its configured extended data', () => {
   const rowsWithExtraData = [
-    { title: 'Flood warning', status: 'Active', description: 'River rising' },
+    { id: 1, title: 'Flood warning', status: 'Active', description: 'River rising' },
   ];
   render(
     <AlertTable
@@ -121,6 +126,7 @@ test('expands a row to show its configured extended data', () => {
       columns={['title', 'status']}
       data={rowsWithExtraData}
       extendedColumns={['description']}
+      rowIdColumn="id"
       height={400}
       width={600}
     />,
@@ -137,4 +143,39 @@ test('expands a row to show its configured extended data', () => {
     screen.getByRole('button', { name: 'Hide extended data for row 1' }),
   );
   expect(screen.queryByText('River rising')).not.toBeInTheDocument();
+});
+
+test('keeps selection on the same alert after sorting and selects only visible rows', () => {
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['title', 'status']}
+      data={data}
+      extendedColumns={[]}
+      rowIdColumn="id"
+      height={400}
+      width={600}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select row 1' }));
+  const titleSortButton = screen.getByRole('button', { name: 'title' });
+  fireEvent.click(titleSortButton);
+  fireEvent.click(titleSortButton);
+
+  const secondVisibleRow = screen.getByRole('checkbox', { name: 'Select row 2' });
+  expect(secondVisibleRow).toBeChecked();
+  expect(screen.getByRole('cell', { name: 'Flood warning' })).toHaveStyle({
+    background: '#e6f4ff',
+  });
+
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search alerts' }), {
+    target: { value: 'Road closure' },
+  });
+  expect(screen.getByText('1 of 2 alerts')).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('checkbox', { name: 'Select all visible rows' }),
+  );
+  expect(screen.getByText('2 selected')).toBeInTheDocument();
+  expect(screen.getByRole('checkbox', { name: 'Select row 1' })).toBeChecked();
 });

@@ -30,6 +30,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - Added optional action-button color and increased button size and table divider thickness
 - Added optional column-header text color
 - Added configurable per-row expanded details for additional alert fields
+- Added row sorting, global text search, stable ID-based selection, selected-row highlighting, and select-all for visible rows
 
 ## [0.20.4](https://github.com/apache/superset/compare/v0.20.3...v0.20.4) (2024-12-10)
 
