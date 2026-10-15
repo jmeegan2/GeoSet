@@ -30,6 +30,10 @@ export default function transformProps(chartProps: ChartProps) {
   const visibleColumns = Array.isArray(rawFormData.all_columns)
     ? (rawFormData.all_columns as QueryFormColumn[]).map(getColumnLabel)
     : [];
+  const rowIdColumn =
+    typeof rawFormData.row_id_column === 'string'
+      ? rawFormData.row_id_column
+      : '';
   const extendedColumns = Array.isArray(rawFormData.extended_columns)
     ? (rawFormData.extended_columns as QueryFormColumn[]).map(getColumnLabel)
     : [];
@@ -93,6 +97,7 @@ export default function transformProps(chartProps: ChartProps) {
     headerColor,
     headerTextColor,
     height,
+    rowIdColumn,
     width,
   };
 }

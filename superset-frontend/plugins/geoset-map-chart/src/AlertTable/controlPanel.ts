@@ -36,6 +36,34 @@ const controlPanel: ControlPanelConfig = {
       label: t('Query'),
       expanded: true,
       controlSetRows: [
+        [
+          {
+            name: 'row_id_column',
+            config: {
+              type: 'SelectControl',
+              label: t('Unique row identifier'),
+              description: t(
+                'Select a column with a unique, non-empty value for every alert. It is used to preserve row selection when sorting or filtering.',
+              ),
+              default: null,
+              clearable: true,
+              choices: [],
+              mapStateToProps: ({ datasource }) => ({
+                choices:
+                  datasource?.columns?.map(
+                    (column: {
+                      column_name: string;
+                      verbose_name?: string;
+                    }) => [
+                      column.column_name,
+                      column.verbose_name || column.column_name,
+                    ],
+                  ) || [],
+              }),
+              validators: [validateNonEmpty],
+            },
+          },
+        ],
         [{ name: 'all_columns', config: columnsControl }],
         [
           {
