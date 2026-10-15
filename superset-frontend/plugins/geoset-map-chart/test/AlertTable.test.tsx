@@ -30,6 +30,7 @@ test('selects individual rows and all rows', () => {
       buttonText="Create report"
       columns={['title', 'status']}
       data={data}
+      extendedColumns={[]}
       height={400}
       width={600}
     />,
@@ -59,6 +60,7 @@ test('keeps the action button disabled until an action is implemented', () => {
       buttonText="Create report"
       columns={['title', 'status']}
       data={data}
+      extendedColumns={[]}
       height={400}
       width={600}
     />,
@@ -80,7 +82,9 @@ test('applies a custom column header color and button text', () => {
       buttonText="Export selected"
       columns={['title', 'status']}
       data={data}
+      extendedColumns={[]}
       headerColor={{ r: 30, g: 100, b: 180, a: 1 }}
+      headerTextColor={{ r: 255, g: 255, b: 255, a: 1 }}
       buttonColor={{ r: 30, g: 100, b: 180, a: 1 }}
       height={400}
       width={600}
@@ -98,10 +102,39 @@ test('applies a custom column header color and button text', () => {
   const header = screen.getByRole('columnheader', { name: 'title' });
   expect(header).toHaveStyle({
     background: 'rgba(30, 100, 180, 1)',
+    color: 'rgba(255, 255, 255, 1)',
     borderBottom: '2px solid #d9d9d9',
   });
   expect(header).toHaveStyle({ borderRight: '2px solid #d9d9d9' });
   expect(screen.getByRole('cell', { name: 'Flood warning' })).toHaveStyle({
     borderRight: '2px solid #d9d9d9',
   });
+});
+
+test('expands a row to show its configured extended data', () => {
+  const rowsWithExtraData = [
+    { title: 'Flood warning', status: 'Active', description: 'River rising' },
+  ];
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['title', 'status']}
+      data={rowsWithExtraData}
+      extendedColumns={['description']}
+      height={400}
+      width={600}
+    />,
+  );
+
+  expect(screen.queryByText('River rising')).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Show extended data for row 1' }),
+  );
+  expect(screen.getByText('description')).toBeInTheDocument();
+  expect(screen.getByText('River rising')).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Hide extended data for row 1' }),
+  );
+  expect(screen.queryByText('River rising')).not.toBeInTheDocument();
 });

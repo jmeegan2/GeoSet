@@ -18,19 +18,31 @@
  */
 import {
   buildQueryContext,
+  getColumnLabel,
   QueryFormColumn,
   QueryFormData,
 } from '@superset-ui/core';
 
 type AlertTableFormData = QueryFormData & {
   all_columns?: QueryFormColumn[];
+  extended_columns?: QueryFormColumn[];
 };
 
 export default function buildQuery(formData: AlertTableFormData) {
+  const columns = [
+    ...(formData.all_columns || []),
+    ...(formData.extended_columns || []),
+  ].filter(
+    (column, index, allColumns) =>
+      allColumns.findIndex(
+        existing => getColumnLabel(existing) === getColumnLabel(column),
+      ) === index,
+  );
+
   return buildQueryContext(formData, baseQueryObject => [
     {
       ...baseQueryObject,
-      columns: formData.all_columns || [],
+      columns,
       groupby: [],
       metrics: [],
       is_timeseries: false,

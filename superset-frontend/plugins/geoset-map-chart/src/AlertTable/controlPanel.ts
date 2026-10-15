@@ -37,6 +37,20 @@ const controlPanel: ControlPanelConfig = {
       expanded: true,
       controlSetRows: [
         [{ name: 'all_columns', config: columnsControl }],
+        [
+          {
+            name: 'extended_columns',
+            config: {
+              ...columnsControl,
+              label: t('Extended data columns'),
+              description: t(
+                'Select additional fields to show when a table row is expanded.',
+              ),
+              default: [],
+              validators: [],
+            },
+          },
+        ],
         ['adhoc_filters'],
         ['row_limit'],
       ],
@@ -66,6 +80,20 @@ const controlPanel: ControlPanelConfig = {
               label: t('Column header color'),
               description: t(
                 'Set a background color for the table column headers. Leave unset to use the default color.',
+              ),
+              default: null,
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'header_text_color',
+            config: {
+              type: 'ColorPickerControl',
+              label: t('Column header text color'),
+              description: t(
+                'Set the text color for the table column headers. Leave unset to use the default text color.',
               ),
               default: null,
               renderTrigger: true,

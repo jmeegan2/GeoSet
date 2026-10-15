@@ -16,13 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { ChartProps, DataRecord } from '@superset-ui/core';
+import {
+  ChartProps,
+  DataRecord,
+  getColumnLabel,
+  QueryFormColumn,
+} from '@superset-ui/core';
 
 export default function transformProps(chartProps: ChartProps) {
   const { height, queriesData, rawFormData, width } = chartProps;
   const queryData = queriesData[0];
   const data: DataRecord[] = queryData?.data || [];
-  const columns = queryData?.colnames || Object.keys(data[0] || {});
+  const visibleColumns = Array.isArray(rawFormData.all_columns)
+    ? (rawFormData.all_columns as QueryFormColumn[]).map(getColumnLabel)
+    : [];
+  const extendedColumns = Array.isArray(rawFormData.extended_columns)
+    ? (rawFormData.extended_columns as QueryFormColumn[]).map(getColumnLabel)
+    : [];
+  const columns =
+    visibleColumns.length > 0
+      ? visibleColumns
+      : queryData?.colnames || Object.keys(data[0] || {});
   const buttonText =
     typeof rawFormData.button_text === 'string' ? rawFormData.button_text : '';
   const color = rawFormData.header_color;
@@ -37,6 +51,20 @@ export default function transformProps(chartProps: ChartProps) {
           g: Number(color.g),
           b: Number(color.b),
           a: 'a' in color ? Number(color.a) : 1,
+        }
+      : undefined;
+  const headerTextColorValue = rawFormData.header_text_color;
+  const headerTextColor =
+    headerTextColorValue &&
+    typeof headerTextColorValue === 'object' &&
+    'r' in headerTextColorValue &&
+    'g' in headerTextColorValue &&
+    'b' in headerTextColorValue
+      ? {
+          r: Number(headerTextColorValue.r),
+          g: Number(headerTextColorValue.g),
+          b: Number(headerTextColorValue.b),
+          a: 'a' in headerTextColorValue ? Number(headerTextColorValue.a) : 1,
         }
       : undefined;
   const buttonColorValue = rawFormData.button_color;
@@ -54,5 +82,17 @@ export default function transformProps(chartProps: ChartProps) {
         }
       : undefined;
 
-  return { buttonColor, buttonText, columns, data, headerColor, height, width };
+  return {
+    buttonColor,
+    buttonText,
+    columns,
+    data,
+    extendedColumns: extendedColumns.filter(
+      column => !columns.includes(column),
+    ),
+    headerColor,
+    headerTextColor,
+    height,
+    width,
+  };
 }
