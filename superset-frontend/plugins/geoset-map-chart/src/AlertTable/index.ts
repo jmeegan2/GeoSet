@@ -70,7 +70,7 @@ const metadata = new ChartMetadata({
   description: t(
     'Display alert records in a table with row selection for SPOT reporting.',
   ),
-  name: t('GeoSet Alert Table'),
+  name: t('Alert Feed Table'),
   thumbnail,
   tags: [t('geoset'), t('Alert'), t('Table'), t('Report')],
 });
