@@ -31,6 +31,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - Added optional column-header text color
 - Added configurable per-row expanded details for additional alert fields
 - Added row sorting, global text search, stable ID-based selection, selected-row highlighting, and select-all for visible rows
+- Added reusable severity badges for selected table columns, with numeric ranges mapped to Low, Medium, High, and Severe
 
 ## [0.20.4](https://github.com/apache/superset/compare/v0.20.3...v0.20.4) (2024-12-10)
 

@@ -30,6 +30,11 @@ export default function transformProps(chartProps: ChartProps) {
   const visibleColumns = Array.isArray(rawFormData.all_columns)
     ? (rawFormData.all_columns as QueryFormColumn[]).map(getColumnLabel)
     : [];
+  const severityColumns = Array.isArray(rawFormData.severity_columns)
+    ? rawFormData.severity_columns.filter(
+        (column): column is string => typeof column === 'string',
+      )
+    : [];
   const rowIdColumn =
     typeof rawFormData.row_id_column === 'string'
       ? rawFormData.row_id_column
@@ -94,6 +99,7 @@ export default function transformProps(chartProps: ChartProps) {
     extendedColumns: extendedColumns.filter(
       column => !columns.includes(column),
     ),
+    severityColumns,
     headerColor,
     headerTextColor,
     height,

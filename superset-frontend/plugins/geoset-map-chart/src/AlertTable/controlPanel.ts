@@ -67,6 +67,35 @@ const controlPanel: ControlPanelConfig = {
         [{ name: 'all_columns', config: columnsControl }],
         [
           {
+            name: 'severity_columns',
+            config: {
+              type: 'SelectControl',
+              label: t('Severity columns'),
+              description: t(
+                'Format numeric severity values from 1 to 10 as Low, Medium, High, or Severe badges. Select one or more columns.',
+              ),
+              default: [],
+              multi: true,
+              clearable: true,
+              choices: [],
+              mapStateToProps: ({ datasource }) => ({
+                choices:
+                  datasource?.columns?.map(
+                    (column: {
+                      column_name: string;
+                      verbose_name?: string;
+                    }) => [
+                      column.column_name,
+                      column.verbose_name || column.column_name,
+                    ],
+                  ) || [],
+              }),
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
             name: 'extended_columns',
             config: {
               ...columnsControl,

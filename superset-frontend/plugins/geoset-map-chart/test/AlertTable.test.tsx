@@ -30,6 +30,7 @@ test('selects individual rows and all rows', () => {
       buttonText="Create report"
       columns={['title', 'status']}
       data={data}
+      severityColumns={[]}
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -63,6 +64,7 @@ test('keeps the action button disabled until an action is implemented', () => {
       buttonText="Create report"
       columns={['title', 'status']}
       data={data}
+      severityColumns={[]}
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -86,6 +88,7 @@ test('applies a custom column header color and button text', () => {
       buttonText="Export selected"
       columns={['title', 'status']}
       data={data}
+      severityColumns={[]}
       extendedColumns={[]}
       rowIdColumn="id"
       headerColor={{ r: 30, g: 100, b: 180, a: 1 }}
@@ -125,6 +128,7 @@ test('expands a row to show its configured extended data', () => {
       buttonText="Create report"
       columns={['title', 'status']}
       data={rowsWithExtraData}
+      severityColumns={[]}
       extendedColumns={['description']}
       rowIdColumn="id"
       height={400}
@@ -151,6 +155,7 @@ test('keeps selection on the same alert after sorting and selects only visible r
       buttonText="Create report"
       columns={['title', 'status']}
       data={data}
+      severityColumns={[]}
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -178,4 +183,43 @@ test('keeps selection on the same alert after sorting and selects only visible r
   );
   expect(screen.getByText('2 selected')).toBeInTheDocument();
   expect(screen.getByRole('checkbox', { name: 'Select row 1' })).toBeChecked();
+});
+
+test('formats numeric severity values in each selected column', () => {
+  const severityData = [
+    { id: 1, severity: 1, alternateSeverity: 3 },
+    { id: 2, severity: 4, alternateSeverity: 6 },
+    { id: 3, severity: 7, alternateSeverity: 8 },
+    { id: 4, severity: 9, alternateSeverity: 10 },
+    { id: 5, severity: 11, alternateSeverity: null },
+  ];
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['severity', 'alternateSeverity']}
+      data={severityData}
+      severityColumns={['severity', 'alternateSeverity']}
+      extendedColumns={[]}
+      rowIdColumn="id"
+      height={400}
+      width={600}
+    />,
+  );
+
+  expect(screen.getAllByText('Low')).toHaveLength(2);
+  expect(screen.getAllByText('Medium')).toHaveLength(2);
+  expect(screen.getAllByText('High')).toHaveLength(2);
+  expect(screen.getAllByText('Severe')).toHaveLength(2);
+  expect(screen.getByRole('cell', { name: '11' })).toBeInTheDocument();
+  expect(screen.getByRole('cell', { name: '' })).toBeInTheDocument();
+  expect(screen.getByText('Low')).toHaveStyle({
+    backgroundColor: 'rgb(230, 244, 255)',
+    color: 'rgb(9, 88, 217)',
+    border: '1px solid #91caff',
+  });
+  expect(screen.getByText('High')).toHaveStyle({
+    backgroundColor: 'rgb(255, 247, 230)',
+    color: 'rgb(212, 107, 8)',
+    border: '1px solid #ffd591',
+  });
 });
