@@ -28,6 +28,7 @@ import {
 export interface AlertTableProps {
   data: DataRecord[];
   columns: string[];
+  severityColumns: string[];
   extendedColumns: string[];
   rowIdColumn: string;
   buttonText: string;
@@ -108,9 +109,57 @@ function compareValues(left: unknown, right: unknown): number {
   });
 }
 
+function getSeverityBadge(value: unknown): {
+  label: string;
+  backgroundColor: string;
+  borderColor: string;
+  color: string;
+} | undefined {
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : NaN;
+  if (!Number.isFinite(numericValue) || numericValue < 1 || numericValue > 10) {
+    return undefined;
+  }
+  if (numericValue <= 3) {
+    return {
+      label: t('Low'),
+      backgroundColor: '#e6f4ff',
+      borderColor: '#91caff',
+      color: '#0958d9',
+    };
+  }
+  if (numericValue <= 6) {
+    return {
+      label: t('Medium'),
+      backgroundColor: '#fffbe6',
+      borderColor: '#ffe58f',
+      color: '#ad6800',
+    };
+  }
+  if (numericValue <= 8) {
+    return {
+      label: t('High'),
+      backgroundColor: '#fff7e6',
+      borderColor: '#ffd591',
+      color: '#d46b08',
+    };
+  }
+  return {
+    label: t('Severe'),
+    backgroundColor: '#fff1f0',
+    borderColor: '#ffa39e',
+    color: '#a8071a',
+  };
+}
+
 export default function AlertTable({
   data,
   columns,
+  severityColumns,
   extendedColumns,
   rowIdColumn,
   buttonText,
@@ -456,22 +505,45 @@ export default function AlertTable({
                         </button>
                       )}
                     </td>
-                    {columns.map((column, columnIndex) => (
-                      <td
-                        key={column}
-                        style={{
-                          borderBottom: '1px solid #eee',
-                          borderRight:
-                            columnIndex === columns.length - 1
-                              ? undefined
-                              : '2px solid #d9d9d9',
-                          background: isSelected ? '#e6f4ff' : undefined,
-                          padding: '8px 12px',
-                        }}
-                      >
-                        {displayValue(row[column])}
-                      </td>
-                    ))}
+                      {columns.map((column, columnIndex) => {
+                        const badge = severityColumns.includes(column)
+                          ? getSeverityBadge(row[column])
+                          : undefined;
+                        return (
+                          <td
+                            key={column}
+                            style={{
+                              borderBottom: '1px solid #eee',
+                              borderRight:
+                                columnIndex === columns.length - 1
+                                  ? undefined
+                                  : '2px solid #d9d9d9',
+                              background: isSelected ? '#e6f4ff' : undefined,
+                              padding: '8px 12px',
+                            }}
+                          >
+                            {badge ? (
+                              <span
+                                style={{
+                                  backgroundColor: badge.backgroundColor,
+                                  border: `1px solid ${badge.borderColor}`,
+                                  borderRadius: 2,
+                                  color: badge.color,
+                                  display: 'inline-block',
+                                  fontWeight: 500,
+                                  lineHeight: '20px',
+                                  padding: '0 8px',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {badge.label}
+                              </span>
+                            ) : (
+                              displayValue(row[column])
+                            )}
+                          </td>
+                        );
+                      })}
                   </tr>
                   {isExpanded && extendedColumns.length > 0 && (
                     <tr>
