@@ -223,3 +223,31 @@ test('formats numeric severity values in each selected column', () => {
     border: '1px solid #ffd591',
   });
 });
+
+test('formats text severity labels as badges', () => {
+  const severityData = [
+    { id: 1, severity: ' Low ' },
+    { id: 2, severity: 'medium' },
+    { id: 3, severity: 'HIGH' },
+    { id: 4, severity: 'Critical' },
+    { id: 5, severity: 'Unknown' },
+  ];
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['severity']}
+      data={severityData}
+      severityColumns={['severity']}
+      extendedColumns={[]}
+      rowIdColumn="id"
+      height={400}
+      width={600}
+    />,
+  );
+
+  expect(screen.getByText('Low')).toBeInTheDocument();
+  expect(screen.getByText('Medium')).toBeInTheDocument();
+  expect(screen.getByText('High')).toBeInTheDocument();
+  expect(screen.getByText('Severe')).toBeInTheDocument();
+  expect(screen.getByRole('cell', { name: 'Unknown' })).toBeInTheDocument();
+});

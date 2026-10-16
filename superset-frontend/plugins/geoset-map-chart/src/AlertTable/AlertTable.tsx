@@ -115,16 +115,45 @@ function getSeverityBadge(value: unknown): {
   borderColor: string;
   color: string;
 } | undefined {
-  const numericValue =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string' && value.trim() !== ''
-        ? Number(value)
-        : NaN;
-  if (!Number.isFinite(numericValue) || numericValue < 1 || numericValue > 10) {
-    return undefined;
+  let severity: 'low' | 'medium' | 'high' | 'severe' | undefined;
+  if (typeof value === 'string') {
+    const normalizedValue = value.trim().toLocaleLowerCase();
+    if (
+      normalizedValue === 'low' ||
+      normalizedValue === 'medium' ||
+      normalizedValue === 'high' ||
+      normalizedValue === 'severe' ||
+      normalizedValue === 'critical'
+    ) {
+      severity =
+        normalizedValue === 'critical' ? 'severe' : normalizedValue;
+    }
   }
-  if (numericValue <= 3) {
+  if (!severity) {
+    const numericValue =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim() !== ''
+          ? Number(value)
+          : NaN;
+    if (
+      !Number.isFinite(numericValue) ||
+      numericValue < 1 ||
+      numericValue > 10
+    ) {
+      return undefined;
+    }
+    severity =
+      numericValue <= 3
+        ? 'low'
+        : numericValue <= 6
+          ? 'medium'
+          : numericValue <= 8
+            ? 'high'
+            : 'severe';
+  }
+
+  if (severity === 'low') {
     return {
       label: t('Low'),
       backgroundColor: '#e6f4ff',
@@ -132,7 +161,7 @@ function getSeverityBadge(value: unknown): {
       color: '#0958d9',
     };
   }
-  if (numericValue <= 6) {
+  if (severity === 'medium') {
     return {
       label: t('Medium'),
       backgroundColor: '#fffbe6',
@@ -140,7 +169,7 @@ function getSeverityBadge(value: unknown): {
       color: '#ad6800',
     };
   }
-  if (numericValue <= 8) {
+  if (severity === 'high') {
     return {
       label: t('High'),
       backgroundColor: '#fff7e6',

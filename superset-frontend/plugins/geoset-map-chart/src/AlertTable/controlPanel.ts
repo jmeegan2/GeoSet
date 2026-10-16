@@ -36,6 +36,8 @@ const controlPanel: ControlPanelConfig = {
       label: t('Query'),
       expanded: true,
       controlSetRows: [
+        ['granularity_sqla'],
+        ['time_range'],
         [
           {
             name: 'row_id_column',
@@ -72,7 +74,7 @@ const controlPanel: ControlPanelConfig = {
               type: 'SelectControl',
               label: t('Severity columns'),
               description: t(
-                'Format numeric severity values from 1 to 10 as Low, Medium, High, or Severe badges. Select one or more columns.',
+                'Format numeric severity values from 1 to 10 or Low, Medium, High, Severe, or Critical text as colored badges. Select one or more columns.',
               ),
               default: [],
               multi: true,
