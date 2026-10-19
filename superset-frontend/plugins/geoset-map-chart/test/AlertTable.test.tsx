@@ -278,9 +278,10 @@ test('applies configured badge labels and colors to matching column values', () 
       ]}
       severityColumns={[]}
       badgeConfiguration
-      badgeRules={
-        'severity_text | Low | Minor | #1677ff\nseverity_text | Severe | Critical | #ff0000'
-      }
+      badgeColumn="severity_text"
+      badgeValueColumn="severity_text"
+      badgeDataType="text"
+      badgeRules="Low | Minor | #1677ff\nSevere | Critical | #ff0000"
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -299,6 +300,31 @@ test('applies configured badge labels and colors to matching column values', () 
   expect(screen.getByRole('cell', { name: 'Unknown' })).toBeInTheDocument();
 });
 
+test('matches badge rules when a column has a display label alias', () => {
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['Severity']}
+      columnAliases={{ Severity: ['severity_text'] }}
+      data={[{ id: 1, Severity: 'Medium', severity_text: 'Medium' }]}
+      severityColumns={['severity_text']}
+      badgeConfiguration
+      badgeColumn="Severity"
+      badgeValueColumn="severity_text"
+      badgeDataType="text"
+      badgeRules="Medium | Medium | #faad14"
+      extendedColumns={[]}
+      rowIdColumn="id"
+      height={400}
+      width={600}
+    />,
+  );
+
+  expect(screen.getByText('Medium')).toHaveStyle({
+    backgroundColor: 'rgb(250, 173, 20)',
+  });
+});
+
 test('shows an error for invalid configured badge rules', () => {
   render(
     <AlertTable
@@ -307,7 +333,10 @@ test('shows an error for invalid configured badge rules', () => {
       data={[{ id: 1, severity_text: 'Low' }]}
       severityColumns={[]}
       badgeConfiguration
-      badgeRules="severity_text | Low | Minor | blue"
+      badgeColumn="severity_text"
+      badgeValueColumn="severity_text"
+      badgeDataType="text"
+      badgeRules="Low | Minor | blue"
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -315,7 +344,31 @@ test('shows an error for invalid configured badge rules', () => {
     />,
   );
 
-  expect(screen.getByRole('alert')).toHaveTextContent(
+  expect(screen.getAllByRole('alert')[0]).toHaveTextContent(
     'Badge rules on lines 1 are invalid',
   );
+});
+
+test('matches numeric configured badge values', () => {
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['Severity']}
+      data={[{ id: 1, Severity: '7', severity_value: 7 }]}
+      severityColumns={[]}
+      badgeConfiguration
+      badgeColumn="Severity"
+      badgeValueColumn="severity_value"
+      badgeDataType="number"
+      badgeRules="7 | High | #fa8c16"
+      extendedColumns={[]}
+      rowIdColumn="id"
+      height={400}
+      width={600}
+    />,
+  );
+
+  expect(screen.getByText('High')).toHaveStyle({
+    backgroundColor: 'rgb(250, 140, 22)',
+  });
 });

@@ -30,12 +30,36 @@ export default function transformProps(chartProps: ChartProps) {
   const visibleColumns = Array.isArray(rawFormData.all_columns)
     ? (rawFormData.all_columns as QueryFormColumn[]).map(getColumnLabel)
     : [];
+  const selectedColumns = Array.isArray(rawFormData.all_columns)
+    ? (rawFormData.all_columns as QueryFormColumn[])
+    : [];
+  const columnAliases = Object.fromEntries(
+    selectedColumns.map(column => [
+      getColumnLabel(column),
+      typeof column === 'string'
+        ? [column]
+        : [column.label, column.sqlExpression].filter(
+            (alias): alias is string =>
+              typeof alias === 'string' && alias.length > 0,
+          ),
+    ]),
+  );
   const severityColumns = Array.isArray(rawFormData.severity_columns)
     ? rawFormData.severity_columns.filter(
         (column): column is string => typeof column === 'string',
       )
     : [];
   const badgeConfiguration = rawFormData.badge_configuration === true;
+  const badgeColumn =
+    typeof rawFormData.badge_column === 'string'
+      ? rawFormData.badge_column
+      : '';
+  const badgeValueColumn =
+    typeof rawFormData.badge_value_column === 'string'
+      ? rawFormData.badge_value_column
+      : '';
+  const badgeDataType =
+    rawFormData.badge_data_type === 'number' ? 'number' : 'text';
   const badgeRules =
     typeof rawFormData.badge_rules === 'string' ? rawFormData.badge_rules : '';
   const rowIdColumn =
@@ -98,8 +122,12 @@ export default function transformProps(chartProps: ChartProps) {
     buttonColor,
     buttonText,
     badgeConfiguration,
+    badgeColumn,
+    badgeValueColumn,
+    badgeDataType,
     badgeRules,
     columns,
+    columnAliases,
     data,
     extendedColumns: extendedColumns.filter(
       column => !columns.includes(column),

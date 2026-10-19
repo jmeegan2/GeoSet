@@ -34,7 +34,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - Added row sorting, global text search, stable ID-based selection, selected-row highlighting, and select-all for visible rows
 - Added reusable severity badges for selected table columns, supporting numeric ranges and Low, Medium, High, Severe, or Critical text values
 - Added time-column and time-range controls so dashboard time filters can filter alerts by timestamp
-- Added opt-in custom badge rules to map column values to badge labels and colors
+- Added opt-in badge configuration with selected display and data columns, data types, and value-to-label/color rules
+- Fixed badge rules matching source columns when the table uses a display label or alias
+- Fixed badge rules matching source columns when the table uses a display label or alias
 
 ## [0.20.4](https://github.com/apache/superset/compare/v0.20.3...v0.20.4) (2024-12-10)
 
