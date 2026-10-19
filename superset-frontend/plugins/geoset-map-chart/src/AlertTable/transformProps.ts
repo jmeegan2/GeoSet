@@ -35,6 +35,9 @@ export default function transformProps(chartProps: ChartProps) {
         (column): column is string => typeof column === 'string',
       )
     : [];
+  const badgeConfiguration = rawFormData.badge_configuration === true;
+  const badgeRules =
+    typeof rawFormData.badge_rules === 'string' ? rawFormData.badge_rules : '';
   const rowIdColumn =
     typeof rawFormData.row_id_column === 'string'
       ? rawFormData.row_id_column
@@ -94,6 +97,8 @@ export default function transformProps(chartProps: ChartProps) {
   return {
     buttonColor,
     buttonText,
+    badgeConfiguration,
+    badgeRules,
     columns,
     data,
     extendedColumns: extendedColumns.filter(
