@@ -72,9 +72,9 @@ const controlPanel: ControlPanelConfig = {
             name: 'severity_columns',
             config: {
               type: 'SelectControl',
-              label: t('Severity columns'),
+              label: t('Automatic severity columns'),
               description: t(
-                'Format numeric severity values from 1 to 10 or Low, Medium, High, Severe, or Critical text as colored badges. Select one or more columns.',
+                'Apply the built-in severity labels and colors to numeric values from 1 to 10 or Low, Medium, High, Severe, or Critical text. Use Badge configuration to define custom mappings.',
               ),
               default: [],
               multi: true,
@@ -92,6 +92,41 @@ const controlPanel: ControlPanelConfig = {
                     ],
                   ) || [],
               }),
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'badge_configuration',
+            config: {
+              type: 'CheckboxControl',
+              label: t('Badge configuration'),
+              description: t(
+                'Enable custom badge rules for matching column values.',
+              ),
+              default: false,
+              rerender: ['badge_rules'],
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'badge_rules',
+            config: {
+              type: 'TextAreaControl',
+              label: t('Badge rules'),
+              description: t(
+                'Enter one rule per line as: column | source value | badge text | hex color. Example: severity_text | Low | Low | #1890ff',
+              ),
+              default: '',
+              height: 120,
+              minLines: 4,
+              maxLines: 10,
+              offerEditInModal: false,
+              visibility: ({ controls }) =>
+                Boolean(controls.badge_configuration?.value),
               renderTrigger: true,
             },
           },

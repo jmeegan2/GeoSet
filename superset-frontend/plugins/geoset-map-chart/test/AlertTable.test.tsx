@@ -31,6 +31,8 @@ test('selects individual rows and all rows', () => {
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
+      badgeConfiguration={false}
+      badgeRules=""
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -65,6 +67,8 @@ test('keeps the action button disabled until an action is implemented', () => {
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
+      badgeConfiguration={false}
+      badgeRules=""
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -89,6 +93,8 @@ test('applies a custom column header color and button text', () => {
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
+      badgeConfiguration={false}
+      badgeRules=""
       extendedColumns={[]}
       rowIdColumn="id"
       headerColor={{ r: 30, g: 100, b: 180, a: 1 }}
@@ -129,6 +135,8 @@ test('expands a row to show its configured extended data', () => {
       columns={['title', 'status']}
       data={rowsWithExtraData}
       severityColumns={[]}
+      badgeConfiguration={false}
+      badgeRules=""
       extendedColumns={['description']}
       rowIdColumn="id"
       height={400}
@@ -156,6 +164,8 @@ test('keeps selection on the same alert after sorting and selects only visible r
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
+      badgeConfiguration={false}
+      badgeRules=""
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -199,6 +209,8 @@ test('formats numeric severity values in each selected column', () => {
       columns={['severity', 'alternateSeverity']}
       data={severityData}
       severityColumns={['severity', 'alternateSeverity']}
+      badgeConfiguration={false}
+      badgeRules=""
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -238,6 +250,8 @@ test('formats text severity labels as badges', () => {
       columns={['severity']}
       data={severityData}
       severityColumns={['severity']}
+      badgeConfiguration={false}
+      badgeRules=""
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
@@ -250,4 +264,58 @@ test('formats text severity labels as badges', () => {
   expect(screen.getByText('High')).toBeInTheDocument();
   expect(screen.getByText('Severe')).toBeInTheDocument();
   expect(screen.getByRole('cell', { name: 'Unknown' })).toBeInTheDocument();
+});
+
+test('applies configured badge labels and colors to matching column values', () => {
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['severity_text']}
+      data={[
+        { id: 1, severity_text: 'Low' },
+        { id: 2, severity_text: 'Severe' },
+        { id: 3, severity_text: 'Unknown' },
+      ]}
+      severityColumns={[]}
+      badgeConfiguration
+      badgeRules={
+        'severity_text | Low | Minor | #1677ff\nseverity_text | Severe | Critical | #ff0000'
+      }
+      extendedColumns={[]}
+      rowIdColumn="id"
+      height={400}
+      width={600}
+    />,
+  );
+
+  expect(screen.getByText('Minor')).toHaveStyle({
+    backgroundColor: 'rgb(22, 119, 255)',
+    color: 'rgb(255, 255, 255)',
+  });
+  expect(screen.getByText('Critical')).toHaveStyle({
+    backgroundColor: 'rgb(255, 0, 0)',
+    color: 'rgb(255, 255, 255)',
+  });
+  expect(screen.getByRole('cell', { name: 'Unknown' })).toBeInTheDocument();
+});
+
+test('shows an error for invalid configured badge rules', () => {
+  render(
+    <AlertTable
+      buttonText="Create report"
+      columns={['severity_text']}
+      data={[{ id: 1, severity_text: 'Low' }]}
+      severityColumns={[]}
+      badgeConfiguration
+      badgeRules="severity_text | Low | Minor | blue"
+      extendedColumns={[]}
+      rowIdColumn="id"
+      height={400}
+      width={600}
+    />,
+  );
+
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Badge rules on lines 1 are invalid',
+  );
 });

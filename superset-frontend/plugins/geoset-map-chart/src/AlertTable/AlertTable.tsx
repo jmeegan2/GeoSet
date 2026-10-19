@@ -29,6 +29,8 @@ export interface AlertTableProps {
   data: DataRecord[];
   columns: string[];
   severityColumns: string[];
+  badgeConfiguration: boolean;
+  badgeRules: string;
   extendedColumns: string[];
   rowIdColumn: string;
   buttonText: string;
@@ -185,10 +187,62 @@ function getSeverityBadge(value: unknown): {
   };
 }
 
+interface BadgeRule {
+  column: string;
+  sourceValue: string;
+  label: string;
+  backgroundColor: string;
+  textColor: string;
+}
+
+function parseBadgeRules(value: string): {
+  rules: BadgeRule[];
+  invalidLines: number[];
+} {
+  const rules: BadgeRule[] = [];
+  const invalidLines: number[] = [];
+  value.split(/\r?\n/).forEach((line, index) => {
+    if (!line.trim()) {
+      return;
+    }
+    const [column, sourceValue, label, backgroundColor, ...extra] = line
+      .split('|')
+      .map(part => part.trim());
+    if (
+      !column ||
+      !sourceValue ||
+      !label ||
+      !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(backgroundColor || '') ||
+      extra.length > 0
+    ) {
+      invalidLines.push(index + 1);
+      return;
+    }
+    const hexColor =
+      backgroundColor.length === 4
+        ? `#${backgroundColor[1]}${backgroundColor[1]}${backgroundColor[2]}${backgroundColor[2]}${backgroundColor[3]}${backgroundColor[3]}`
+        : backgroundColor;
+    const red = parseInt(hexColor.slice(1, 3), 16);
+    const green = parseInt(hexColor.slice(3, 5), 16);
+    const blue = parseInt(hexColor.slice(5, 7), 16);
+    const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
+    rules.push({
+      column,
+      sourceValue: sourceValue.toLocaleLowerCase(),
+      label,
+      backgroundColor: hexColor,
+      textColor: brightness >= 150 ? '#000' : '#fff',
+    });
+  });
+  return { rules, invalidLines };
+}
+
 export default function AlertTable({
   data,
   columns,
   severityColumns,
+  badgeConfiguration,
+  badgeRules: badgeRulesText,
   extendedColumns,
   rowIdColumn,
   buttonText,
@@ -212,6 +266,8 @@ export default function AlertTable({
     : undefined;
   const tableButtonColor = getButtonColor(buttonColor);
   const tableButtonTextColor = getButtonTextColor(buttonColor);
+  const { rules: configuredBadgeRules, invalidLines: invalidBadgeRuleLines } =
+    useMemo(() => parseBadgeRules(badgeRulesText), [badgeRulesText]);
 
   useEffect(() => {
     setSelectedRows(new Set());
@@ -410,6 +466,33 @@ export default function AlertTable({
               )}
         </div>
       )}
+      {badgeConfiguration && invalidBadgeRuleLines.length > 0 && (
+        <div
+          role="alert"
+          style={{
+            background: '#fff2f0',
+            color: '#a8071a',
+            padding: '8px 12px',
+          }}
+        >
+          {t(
+            'Badge rules on lines %(lines)s are invalid. Use column | source value | badge text | hex color.',
+            { lines: invalidBadgeRuleLines.join(', ') },
+          )}
+        </div>
+      )}
+      {badgeConfiguration && configuredBadgeRules.length === 0 && (
+        <div
+          role="alert"
+          style={{
+            background: '#fffbe6',
+            color: '#ad6800',
+            padding: '8px 12px',
+          }}
+        >
+          {t('Badge configuration is enabled, but no valid badge rules are set.')}
+        </div>
+      )}
       <div style={{ flex: 1, overflow: 'auto' }}>
         <table
           style={{
@@ -535,9 +618,27 @@ export default function AlertTable({
                       )}
                     </td>
                       {columns.map((column, columnIndex) => {
-                        const badge = severityColumns.includes(column)
-                          ? getSeverityBadge(row[column])
+                        const configuredRule = badgeConfiguration
+                          ? configuredBadgeRules.find(
+                              rule =>
+                                rule.column === column &&
+                                rule.sourceValue ===
+                                  displayValue(row[column])
+                                    .trim()
+                                    .toLocaleLowerCase(),
+                            )
                           : undefined;
+                        const hasConfiguredRulesForColumn =
+                          badgeConfiguration &&
+                          configuredBadgeRules.some(
+                            rule => rule.column === column,
+                          );
+                        const badge = configuredRule
+                          ? configuredRule
+                          : !hasConfiguredRulesForColumn &&
+                              severityColumns.includes(column)
+                            ? getSeverityBadge(row[column])
+                            : undefined;
                         return (
                           <td
                             key={column}
@@ -555,9 +656,16 @@ export default function AlertTable({
                               <span
                                 style={{
                                   backgroundColor: badge.backgroundColor,
-                                  border: `1px solid ${badge.borderColor}`,
+                                  border: `1px solid ${
+                                    'borderColor' in badge
+                                      ? badge.borderColor
+                                      : badge.backgroundColor
+                                  }`,
                                   borderRadius: 2,
-                                  color: badge.color,
+                                  color:
+                                    'textColor' in badge
+                                      ? badge.textColor
+                                      : badge.color,
                                   display: 'inline-block',
                                   fontWeight: 500,
                                   lineHeight: '20px',
