@@ -17,7 +17,12 @@
  * under the License.
  */
 import { ControlPanelConfig, sharedControls } from '@superset-ui/chart-controls';
-import { t, validateNonEmpty } from '@superset-ui/core';
+import {
+  getColumnLabel,
+  QueryFormColumn,
+  t,
+  validateNonEmpty,
+} from '@superset-ui/core';
 
 const columnsControl = {
   ...sharedControls.groupby,
@@ -67,70 +72,6 @@ const controlPanel: ControlPanelConfig = {
           },
         ],
         [{ name: 'all_columns', config: columnsControl }],
-        [
-          {
-            name: 'severity_columns',
-            config: {
-              type: 'SelectControl',
-              label: t('Automatic severity columns'),
-              description: t(
-                'Apply the built-in severity labels and colors to numeric values from 1 to 10 or Low, Medium, High, Severe, or Critical text. Use Badge configuration to define custom mappings.',
-              ),
-              default: [],
-              multi: true,
-              clearable: true,
-              choices: [],
-              mapStateToProps: ({ datasource }) => ({
-                choices:
-                  datasource?.columns?.map(
-                    (column: {
-                      column_name: string;
-                      verbose_name?: string;
-                    }) => [
-                      column.column_name,
-                      column.verbose_name || column.column_name,
-                    ],
-                  ) || [],
-              }),
-              renderTrigger: true,
-            },
-          },
-        ],
-        [
-          {
-            name: 'badge_configuration',
-            config: {
-              type: 'CheckboxControl',
-              label: t('Badge configuration'),
-              description: t(
-                'Enable custom badge rules for matching column values.',
-              ),
-              default: false,
-              rerender: ['badge_rules'],
-              renderTrigger: true,
-            },
-          },
-        ],
-        [
-          {
-            name: 'badge_rules',
-            config: {
-              type: 'TextAreaControl',
-              label: t('Badge rules'),
-              description: t(
-                'Enter one rule per line as: column | source value | badge text | hex color. Example: severity_text | Low | Low | #1890ff',
-              ),
-              default: '',
-              height: 120,
-              minLines: 4,
-              maxLines: 10,
-              offerEditInModal: false,
-              visibility: ({ controls }) =>
-                Boolean(controls.badge_configuration?.value),
-              renderTrigger: true,
-            },
-          },
-        ],
         [
           {
             name: 'extended_columns',
@@ -204,6 +145,164 @@ const controlPanel: ControlPanelConfig = {
                 'Set a background color for the table action button. Leave unset to use the default color.',
               ),
               default: null,
+              renderTrigger: true,
+            },
+          },
+        ],
+      ],
+    },
+    {
+      label: t('Customize'),
+      tabOverride: 'customize',
+      expanded: true,
+      controlSetRows: [
+        [
+          {
+            name: 'badge_configuration',
+            config: {
+              type: 'CheckboxControl',
+              label: t('Need Badge Configuration'),
+              description: t(
+                'Enable custom badge rules for a selected table column.',
+              ),
+              default: false,
+              rerender: [
+                'badge_column',
+                'badge_value_column',
+                'badge_data_type',
+                'badge_rules',
+              ],
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'badge_column',
+            config: {
+              type: 'SelectControl',
+              label: t('Table column to badge'),
+              description: t(
+                'Choose the displayed table column where matching values should appear as badges.',
+              ),
+              default: null,
+              clearable: true,
+              choices: [],
+              mapStateToProps: ({ controls }) => {
+                const selectedColumns = controls?.all_columns?.value;
+                return {
+                  choices: Array.isArray(selectedColumns)
+                    ? selectedColumns.map((column: QueryFormColumn) => [
+                        getColumnLabel(column),
+                        getColumnLabel(column),
+                      ])
+                    : [],
+                };
+              },
+              visibility: ({ controls }) =>
+                Boolean(controls.badge_configuration?.value),
+              rerender: ['all_columns'],
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'badge_value_column',
+            config: {
+              type: 'SelectControl',
+              label: t('Badge data column'),
+              description: t(
+                'Choose the data column whose value is used to find a matching badge rule.',
+              ),
+              default: null,
+              clearable: true,
+              choices: [],
+              mapStateToProps: ({ datasource }) => ({
+                choices:
+                  datasource?.columns?.map(
+                    (column: {
+                      column_name: string;
+                      verbose_name?: string;
+                    }) => [
+                      column.column_name,
+                      column.verbose_name || column.column_name,
+                    ],
+                  ) || [],
+              }),
+              visibility: ({ controls }) =>
+                Boolean(controls.badge_configuration?.value),
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'badge_data_type',
+            config: {
+              type: 'SelectControl',
+              label: t('Badge data type'),
+              description: t(
+                'Choose how source values in the badge rules are matched.',
+              ),
+              default: 'text',
+              clearable: false,
+              choices: [
+                ['text', t('Text')],
+                ['number', t('Number')],
+              ],
+              visibility: ({ controls }) =>
+                Boolean(controls.badge_configuration?.value),
+              rerender: ['badge_rules'],
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'badge_rules',
+            config: {
+              type: 'TextAreaControl',
+              label: t('Badge rules'),
+              description: t(
+                'Enter one rule per line as: source value | badge text | hex color. Example: Low | Low | #1677ff',
+              ),
+              default: '',
+              height: 120,
+              minLines: 4,
+              maxLines: 10,
+              offerEditInModal: false,
+              visibility: ({ controls }) =>
+                Boolean(controls.badge_configuration?.value),
+              renderTrigger: true,
+            },
+          },
+        ],
+        [
+          {
+            name: 'severity_columns',
+            config: {
+              type: 'SelectControl',
+              label: t('Automatic severity columns'),
+              description: t(
+                'Apply the built-in severity labels and colors to numeric values from 1 to 10 or Low, Medium, High, Severe, or Critical text.',
+              ),
+              default: [],
+              multi: true,
+              clearable: true,
+              choices: [],
+              mapStateToProps: ({ datasource }) => ({
+                choices:
+                  datasource?.columns?.map(
+                    (column: {
+                      column_name: string;
+                      verbose_name?: string;
+                    }) => [
+                      column.column_name,
+                      column.verbose_name || column.column_name,
+                    ],
+                  ) || [],
+              }),
               renderTrigger: true,
             },
           },

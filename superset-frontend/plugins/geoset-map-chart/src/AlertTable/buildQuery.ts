@@ -27,11 +27,13 @@ type AlertTableFormData = QueryFormData & {
   all_columns?: QueryFormColumn[];
   extended_columns?: QueryFormColumn[];
   row_id_column?: string;
+  badge_value_column?: string;
 };
 
 export default function buildQuery(formData: AlertTableFormData) {
   const columns = [
     ...(formData.row_id_column ? [formData.row_id_column] : []),
+    ...(formData.badge_value_column ? [formData.badge_value_column] : []),
     ...(formData.all_columns || []),
     ...(formData.extended_columns || []),
   ].filter(

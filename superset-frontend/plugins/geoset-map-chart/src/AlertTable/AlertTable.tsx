@@ -28,8 +28,12 @@ import {
 export interface AlertTableProps {
   data: DataRecord[];
   columns: string[];
+  columnAliases?: Record<string, string[]>;
   severityColumns: string[];
   badgeConfiguration: boolean;
+  badgeColumn?: string;
+  badgeValueColumn?: string;
+  badgeDataType?: 'text' | 'number';
   badgeRules: string;
   extendedColumns: string[];
   rowIdColumn: string;
@@ -188,14 +192,16 @@ function getSeverityBadge(value: unknown): {
 }
 
 interface BadgeRule {
-  column: string;
   sourceValue: string;
   label: string;
   backgroundColor: string;
   textColor: string;
 }
 
-function parseBadgeRules(value: string): {
+function parseBadgeRules(
+  value: string,
+  dataType: 'text' | 'number',
+): {
   rules: BadgeRule[];
   invalidLines: number[];
 } {
@@ -205,15 +211,15 @@ function parseBadgeRules(value: string): {
     if (!line.trim()) {
       return;
     }
-    const [column, sourceValue, label, backgroundColor, ...extra] = line
+    const [sourceValue, label, backgroundColor, ...extra] = line
       .split('|')
       .map(part => part.trim());
     if (
-      !column ||
       !sourceValue ||
       !label ||
       !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(backgroundColor || '') ||
-      extra.length > 0
+      extra.length > 0 ||
+      (dataType === 'number' && !Number.isFinite(Number(sourceValue)))
     ) {
       invalidLines.push(index + 1);
       return;
@@ -227,8 +233,10 @@ function parseBadgeRules(value: string): {
     const blue = parseInt(hexColor.slice(5, 7), 16);
     const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
     rules.push({
-      column,
-      sourceValue: sourceValue.toLocaleLowerCase(),
+      sourceValue:
+        dataType === 'number'
+          ? String(Number(sourceValue))
+          : sourceValue.toLocaleLowerCase(),
       label,
       backgroundColor: hexColor,
       textColor: brightness >= 150 ? '#000' : '#fff',
@@ -240,8 +248,12 @@ function parseBadgeRules(value: string): {
 export default function AlertTable({
   data,
   columns,
+  columnAliases = {},
   severityColumns,
   badgeConfiguration,
+  badgeColumn = '',
+  badgeValueColumn = '',
+  badgeDataType = 'text',
   badgeRules: badgeRulesText,
   extendedColumns,
   rowIdColumn,
@@ -267,7 +279,12 @@ export default function AlertTable({
   const tableButtonColor = getButtonColor(buttonColor);
   const tableButtonTextColor = getButtonTextColor(buttonColor);
   const { rules: configuredBadgeRules, invalidLines: invalidBadgeRuleLines } =
-    useMemo(() => parseBadgeRules(badgeRulesText), [badgeRulesText]);
+    useMemo(
+      () => parseBadgeRules(badgeRulesText, badgeDataType),
+      [badgeRulesText, badgeDataType],
+    );
+  const badgeConfigurationIsIncomplete =
+    badgeConfiguration && (!badgeColumn || !badgeValueColumn);
 
   useEffect(() => {
     setSelectedRows(new Set());
@@ -481,7 +498,23 @@ export default function AlertTable({
           )}
         </div>
       )}
-      {badgeConfiguration && configuredBadgeRules.length === 0 && (
+      {badgeConfigurationIsIncomplete && (
+        <div
+          role="alert"
+          style={{
+            background: '#fffbe6',
+            color: '#ad6800',
+            padding: '8px 12px',
+          }}
+        >
+          {t(
+            'Choose both a table column to badge and a badge data column in Badge Configuration.',
+          )}
+        </div>
+      )}
+      {badgeConfiguration &&
+        badgeRulesText.trim() === '' &&
+        configuredBadgeRules.length === 0 && (
         <div
           role="alert"
           style={{
@@ -618,25 +651,44 @@ export default function AlertTable({
                       )}
                     </td>
                       {columns.map((column, columnIndex) => {
-                        const configuredRule = badgeConfiguration
-                          ? configuredBadgeRules.find(
-                              rule =>
-                                rule.column === column &&
-                                rule.sourceValue ===
-                                  displayValue(row[column])
-                                    .trim()
-                                    .toLocaleLowerCase(),
-                            )
-                          : undefined;
-                        const hasConfiguredRulesForColumn =
-                          badgeConfiguration &&
-                          configuredBadgeRules.some(
-                            rule => rule.column === column,
+                        const columnNames = [
+                          column,
+                          ...(columnAliases[column] || []),
+                        ].map(name => name.trim().toLocaleLowerCase());
+                        const isSelectedSeverityColumn = (
+                          selectedColumn: string,
+                        ) =>
+                          columnNames.includes(
+                            selectedColumn.trim().toLocaleLowerCase(),
                           );
+                        const isConfiguredBadgeColumn =
+                          badgeConfiguration &&
+                          columnNames.includes(
+                            badgeColumn.trim().toLocaleLowerCase(),
+                          );
+                        const sourceValue = displayValue(
+                          row[badgeValueColumn],
+                        ).trim();
+                        const normalizedSourceValue =
+                          badgeDataType === 'number' && sourceValue
+                            ? String(Number(sourceValue))
+                            : sourceValue.toLocaleLowerCase();
+                        const configuredRule =
+                          badgeConfiguration && isConfiguredBadgeColumn
+                            ? configuredBadgeRules.find(
+                                rule =>
+                                  rule.sourceValue === normalizedSourceValue,
+                              )
+                            : undefined;
+                        const hasConfiguredRulesForColumn =
+                          isConfiguredBadgeColumn;
+                        const isSeverityColumn = severityColumns.some(
+                          isSelectedSeverityColumn,
+                        );
                         const badge = configuredRule
                           ? configuredRule
                           : !hasConfiguredRulesForColumn &&
-                              severityColumns.includes(column)
+                              isSeverityColumn
                             ? getSeverityBadge(row[column])
                             : undefined;
                         return (
