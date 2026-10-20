@@ -30,10 +30,20 @@ type AlertTableFormData = QueryFormData & {
 };
 
 export default function buildQuery(formData: AlertTableFormData) {
+  const reportColumns = [
+    'headline',
+    'location_name',
+    'alert_timestamp',
+    'source_url',
+    'source_attribution',
+    'alert_id',
+    'event_id',
+  ];
   const columns = [
     ...(formData.row_id_column ? [formData.row_id_column] : []),
     ...(formData.all_columns || []),
     ...(formData.extended_columns || []),
+    ...reportColumns,
   ].filter(
     (column, index, allColumns) =>
       allColumns.findIndex(

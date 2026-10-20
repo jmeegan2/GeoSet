@@ -125,7 +125,7 @@ const controlPanel: ControlPanelConfig = {
               type: 'TextControl',
               label: t('Button text'),
               description: t('Text displayed on the table action button.'),
-              default: '',
+              default: 'Create SPOT Report',
               renderTrigger: true,
               validators: [validateNonEmpty],
             },

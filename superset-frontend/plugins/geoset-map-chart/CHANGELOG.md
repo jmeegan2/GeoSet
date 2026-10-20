@@ -26,6 +26,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Added
 
+- Added an MVP SPOT Report Builder chart
 - Required configurable action-button text and optional column-header color for the GeoSet Alert Table
 - Added optional action-button color and increased button size and table divider thickness
 - Added optional column-header text color

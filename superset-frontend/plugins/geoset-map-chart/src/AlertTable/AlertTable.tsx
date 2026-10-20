@@ -17,13 +17,8 @@
  * under the License.
  */
 import { t, DataRecord } from '@superset-ui/core';
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { publishSpotReportRequest } from '../utils/spotReportSelection';
 
 export interface AlertTableProps {
   data: DataRecord[];
@@ -41,9 +36,7 @@ export interface AlertTableProps {
 
 const DEFAULT_HEADER_COLOR = '#f5f5f5';
 
-function getHeaderColor(
-  color?: AlertTableProps['headerColor'],
-): string {
+function getHeaderColor(color?: AlertTableProps['headerColor']): string {
   if (!color) {
     return DEFAULT_HEADER_COLOR;
   }
@@ -109,12 +102,14 @@ function compareValues(left: unknown, right: unknown): number {
   });
 }
 
-function getSeverityBadge(value: unknown): {
-  label: string;
-  backgroundColor: string;
-  borderColor: string;
-  color: string;
-} | undefined {
+function getSeverityBadge(value: unknown):
+  | {
+      label: string;
+      backgroundColor: string;
+      borderColor: string;
+      color: string;
+    }
+  | undefined {
   let severity: 'low' | 'medium' | 'high' | 'severe' | undefined;
   if (typeof value === 'string') {
     const normalizedValue = value.trim().toLocaleLowerCase();
@@ -125,8 +120,7 @@ function getSeverityBadge(value: unknown): {
       normalizedValue === 'severe' ||
       normalizedValue === 'critical'
     ) {
-      severity =
-        normalizedValue === 'critical' ? 'severe' : normalizedValue;
+      severity = normalizedValue === 'critical' ? 'severe' : normalizedValue;
     }
   }
   if (!severity) {
@@ -267,6 +261,14 @@ export default function AlertTable({
     selectedRows.has(key),
   );
 
+  const selectedData = useMemo(
+    () =>
+      rowsWithKeys
+        .filter(({ key }) => key && selectedRows.has(key))
+        .map(({ row }) => row),
+    [rowsWithKeys, selectedRows],
+  );
+
   useEffect(() => {
     if (selectAllRef.current) {
       selectAllRef.current.indeterminate =
@@ -313,8 +315,7 @@ export default function AlertTable({
   const toggleSort = (column: string) => {
     setSortBy(previous => ({
       column,
-      descending:
-        previous?.column === column ? !previous.descending : false,
+      descending: previous?.column === column ? !previous.descending : false,
     }));
   };
 
@@ -353,7 +354,8 @@ export default function AlertTable({
         </span>
         <button
           disabled={!rowIdentityIsValid || selectedRows.size === 0}
-          title={t('This action button is not connected to an action yet.')}
+          onClick={() => publishSpotReportRequest(selectedData)}
+          title={t('Create a SPOT report from the selected alerts.')}
           type="button"
           style={{
             padding: '10px 18px',
@@ -482,58 +484,65 @@ export default function AlertTable({
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map(({ row, index: rowIndex, key }, visibleRowIndex) => {
-              const rowKey = key || `invalid-row-${rowIndex}`;
-              const isSelected = key ? selectedRows.has(key) : false;
-              const isExpanded = expandedRows.has(rowKey);
-              return (
-                <Fragment key={rowKey}>
-                  <tr>
-                    <td
-                      style={{
-                        borderBottom: '1px solid #eee',
-                        borderRight: '2px solid #d9d9d9',
-                        background: isSelected ? '#e6f4ff' : undefined,
-                        padding: '8px 12px',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <input
-                        aria-label={t('Select row %(rowNumber)s', {
-                          rowNumber: visibleRowIndex + 1,
-                        })}
-                        checked={isSelected}
-                        disabled={!rowIdentityIsValid || !key}
-                        onChange={() => key && toggleRow(key)}
-                        type="checkbox"
-                      />
-                      {extendedColumns.length > 0 && (
-                        <button
-                          aria-expanded={isExpanded}
-                          aria-label={
-                            isExpanded
-                              ? t('Hide extended data for row %(rowNumber)s', {
-                                  rowNumber: visibleRowIndex + 1,
-                                })
-                              : t('Show extended data for row %(rowNumber)s', {
-                                  rowNumber: visibleRowIndex + 1,
-                                })
-                          }
-                          onClick={() => toggleExpandedRow(rowKey)}
-                          style={{
-                            background: 'transparent',
-                            border: 0,
-                            cursor: 'pointer',
-                            fontSize: 14,
-                            marginLeft: 8,
-                            padding: 0,
-                          }}
-                          type="button"
-                        >
-                          {isExpanded ? '▾' : '▸'}
-                        </button>
-                      )}
-                    </td>
+            {visibleRows.map(
+              ({ row, index: rowIndex, key }, visibleRowIndex) => {
+                const rowKey = key || `invalid-row-${rowIndex}`;
+                const isSelected = key ? selectedRows.has(key) : false;
+                const isExpanded = expandedRows.has(rowKey);
+                return (
+                  <Fragment key={rowKey}>
+                    <tr>
+                      <td
+                        style={{
+                          borderBottom: '1px solid #eee',
+                          borderRight: '2px solid #d9d9d9',
+                          background: isSelected ? '#e6f4ff' : undefined,
+                          padding: '8px 12px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <input
+                          aria-label={t('Select row %(rowNumber)s', {
+                            rowNumber: visibleRowIndex + 1,
+                          })}
+                          checked={isSelected}
+                          disabled={!rowIdentityIsValid || !key}
+                          onChange={() => key && toggleRow(key)}
+                          type="checkbox"
+                        />
+                        {extendedColumns.length > 0 && (
+                          <button
+                            aria-expanded={isExpanded}
+                            aria-label={
+                              isExpanded
+                                ? t(
+                                    'Hide extended data for row %(rowNumber)s',
+                                    {
+                                      rowNumber: visibleRowIndex + 1,
+                                    },
+                                  )
+                                : t(
+                                    'Show extended data for row %(rowNumber)s',
+                                    {
+                                      rowNumber: visibleRowIndex + 1,
+                                    },
+                                  )
+                            }
+                            onClick={() => toggleExpandedRow(rowKey)}
+                            style={{
+                              background: 'transparent',
+                              border: 0,
+                              cursor: 'pointer',
+                              fontSize: 14,
+                              marginLeft: 8,
+                              padding: 0,
+                            }}
+                            type="button"
+                          >
+                            {isExpanded ? '▾' : '▸'}
+                          </button>
+                        )}
+                      </td>
                       {columns.map((column, columnIndex) => {
                         const badge = severityColumns.includes(column)
                           ? getSeverityBadge(row[column])
@@ -573,45 +582,46 @@ export default function AlertTable({
                           </td>
                         );
                       })}
-                  </tr>
-                  {isExpanded && extendedColumns.length > 0 && (
-                    <tr>
-                      <td
-                        colSpan={columns.length + 1}
-                        style={{
-                          background: '#fafafa',
-                          borderBottom: '1px solid #eee',
-                          padding: '12px 20px',
-                        }}
-                      >
-                        <dl
+                    </tr>
+                    {isExpanded && extendedColumns.length > 0 && (
+                      <tr>
+                        <td
+                          colSpan={columns.length + 1}
                           style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'max-content 1fr',
-                            gap: '8px 16px',
-                            margin: 0,
+                            background: '#fafafa',
+                            borderBottom: '1px solid #eee',
+                            padding: '12px 20px',
                           }}
                         >
-                          {extendedColumns.map(column => (
-                            <div
-                              key={column}
-                              style={{
-                                display: 'contents',
-                              }}
-                            >
-                              <dt style={{ fontWeight: 600 }}>{column}</dt>
-                              <dd style={{ margin: 0 }}>
-                                {displayValue(row[column])}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
+                          <dl
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'max-content 1fr',
+                              gap: '8px 16px',
+                              margin: 0,
+                            }}
+                          >
+                            {extendedColumns.map(column => (
+                              <div
+                                key={column}
+                                style={{
+                                  display: 'contents',
+                                }}
+                              >
+                                <dt style={{ fontWeight: 600 }}>{column}</dt>
+                                <dd style={{ margin: 0 }}>
+                                  {displayValue(row[column])}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              },
+            )}
             {visibleRows.length === 0 && (
               <tr>
                 <td
