@@ -3,7 +3,6 @@ import os
 import re
 
 from flask import request, Response
-from flask_appbuilder import permission_name
 from flask_appbuilder.api import expose, protect, safe
 from marshmallow import ValidationError
 from sqlalchemy import bindparam, text
@@ -104,10 +103,8 @@ class GeoSetMapRestApi(BaseSupersetApi):
         )
         return self.response(200, result=result)
 
-    @protect()
-    @safe
     @expose("/acf_program_counts/", methods=("GET",))
-    @permission_name("read")
+    @safe
     def acf_program_counts(self) -> Response:
         """Return ACF program location counts for selected alert counties."""
         alert_ids = {
