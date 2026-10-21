@@ -430,12 +430,12 @@ export default function AlertTable({
             total: data.length,
           })}
         </Typography.Text>
-        <Space direction="horizontal" size={8}>
-          <Typography.Text type="secondary">{t('Search')}</Typography.Text>
+        <Space direction="horizontal" size={4}>
+          {t('Search')}
           <Input
             aria-label={t('Search %(count)s records', { count: data.length })}
             placeholder={t('%(count)s records...', { count: data.length })}
-            style={{ width: 240 }}
+            size="small"
             value={searchText}
             onChange={event => setSearchText(event.target.value)}
           />
