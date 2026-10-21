@@ -17,7 +17,7 @@
  * under the License.
  */
 import { t, DataRecord } from '@superset-ui/core';
-import { Input, Space } from 'antd';
+import { Button, Input, Space } from 'antd';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { publishSpotReportRequest } from '../utils/spotReportSelection';
 
@@ -33,10 +33,8 @@ export interface AlertTableProps {
   badgeRules: string;
   extendedColumns: string[];
   rowIdColumn: string;
-  buttonText: string;
   headerColor?: { r: number; g: number; b: number; a?: number };
   headerTextColor?: { r: number; g: number; b: number; a?: number };
-  buttonColor?: { r: number; g: number; b: number; a?: number };
   height: number;
   width: number;
 }
@@ -48,26 +46,6 @@ function getHeaderColor(color?: AlertTableProps['headerColor']): string {
     return DEFAULT_HEADER_COLOR;
   }
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a ?? 1})`;
-}
-
-function getButtonColor(
-  color?: AlertTableProps['buttonColor'],
-): string | undefined {
-  if (!color) {
-    return undefined;
-  }
-  return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a ?? 1})`;
-}
-
-function getButtonTextColor(
-  color?: AlertTableProps['buttonColor'],
-): string | undefined {
-  if (!color) {
-    return undefined;
-  }
-  const luminance =
-    (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
-  return luminance > 0.5 ? '#000' : '#fff';
 }
 
 function displayValue(value: unknown): string {
@@ -252,10 +230,8 @@ export default function AlertTable({
   badgeRules: badgeRulesText,
   extendedColumns,
   rowIdColumn,
-  buttonText,
   headerColor,
   headerTextColor,
-  buttonColor,
   height,
   width,
 }: AlertTableProps) {
@@ -271,8 +247,6 @@ export default function AlertTable({
   const tableHeaderTextColor = headerTextColor
     ? `rgba(${headerTextColor.r}, ${headerTextColor.g}, ${headerTextColor.b}, ${headerTextColor.a ?? 1})`
     : undefined;
-  const tableButtonColor = getButtonColor(buttonColor);
-  const tableButtonTextColor = getButtonTextColor(buttonColor);
   const { rules: configuredBadgeRules, invalidLines: invalidBadgeRuleLines } =
     useMemo(
       () => parseBadgeRules(badgeRulesText, badgeDataType),
@@ -428,25 +402,14 @@ export default function AlertTable({
             {t('%(count)s selected', { count: selectedRows.size })}
           </span>
         </div>
-        <button
+        <Button
           disabled={!rowIdentityIsValid || selectedRows.size === 0}
           onClick={() => publishSpotReportRequest(selectedData)}
           title={t('Create a SPOT report from the selected alerts.')}
-          type="button"
-          style={{
-            padding: '10px 18px',
-            fontSize: 14,
-            ...(tableButtonColor
-              ? {
-                  backgroundColor: tableButtonColor,
-                  borderColor: tableButtonColor,
-                  color: tableButtonTextColor,
-                }
-              : {}),
-          }}
+          type="primary"
         >
-          {buttonText}
-        </button>
+          {t('Create SPOT Report')}
+        </Button>
       </div>
       <div
         style={{

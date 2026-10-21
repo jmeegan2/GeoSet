@@ -73,8 +73,6 @@ export default function transformProps(chartProps: ChartProps) {
     visibleColumns.length > 0
       ? visibleColumns
       : queryData?.colnames || Object.keys(data[0] || {});
-  const buttonText =
-    typeof rawFormData.button_text === 'string' ? rawFormData.button_text : '';
   const color = rawFormData.header_color;
   const headerColor =
     color &&
@@ -103,24 +101,7 @@ export default function transformProps(chartProps: ChartProps) {
           a: 'a' in headerTextColorValue ? Number(headerTextColorValue.a) : 1,
         }
       : undefined;
-  const buttonColorValue = rawFormData.button_color;
-  const buttonColor =
-    buttonColorValue &&
-    typeof buttonColorValue === 'object' &&
-    'r' in buttonColorValue &&
-    'g' in buttonColorValue &&
-    'b' in buttonColorValue
-      ? {
-          r: Number(buttonColorValue.r),
-          g: Number(buttonColorValue.g),
-          b: Number(buttonColorValue.b),
-          a: 'a' in buttonColorValue ? Number(buttonColorValue.a) : 1,
-        }
-      : undefined;
-
   return {
-    buttonColor,
-    buttonText,
     badgeConfiguration,
     badgeColumn,
     badgeValueColumn,

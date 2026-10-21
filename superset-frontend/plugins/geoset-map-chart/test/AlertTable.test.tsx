@@ -27,7 +27,6 @@ const data = [
 test('selects individual rows and all rows', () => {
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
@@ -63,7 +62,6 @@ test('selects individual rows and all rows', () => {
 test('keeps the action button disabled until an action is implemented', () => {
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
@@ -76,7 +74,9 @@ test('keeps the action button disabled until an action is implemented', () => {
     />,
   );
 
-  const actionButton = screen.getByRole('button', { name: 'Create report' });
+  const actionButton = screen.getByRole('button', {
+    name: 'Create SPOT Report',
+  });
   expect(actionButton).toBeDisabled();
 
   fireEvent.click(screen.getByRole('checkbox', { name: 'Select row 1' }));
@@ -86,10 +86,9 @@ test('keeps the action button disabled until an action is implemented', () => {
   expect(actionButton).toBeDisabled();
 });
 
-test('applies a custom column header color and button text', () => {
+test('applies a custom column header color and uses the standard action button', () => {
   render(
     <AlertTable
-      buttonText="Export selected"
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
@@ -99,20 +98,13 @@ test('applies a custom column header color and button text', () => {
       rowIdColumn="id"
       headerColor={{ r: 30, g: 100, b: 180, a: 1 }}
       headerTextColor={{ r: 255, g: 255, b: 255, a: 1 }}
-      buttonColor={{ r: 30, g: 100, b: 180, a: 1 }}
       height={400}
       width={600}
     />,
   );
 
-  const button = screen.getByRole('button', { name: 'Export selected' });
+  const button = screen.getByRole('button', { name: 'Create SPOT Report' });
   expect(button).toBeInTheDocument();
-  expect(button).toHaveStyle({
-    backgroundColor: 'rgba(30, 100, 180, 1)',
-    color: '#fff',
-    fontSize: '14px',
-    padding: '10px 18px',
-  });
   const header = screen.getByRole('columnheader', { name: 'title' });
   expect(header).toHaveStyle({
     background: 'rgba(30, 100, 180, 1)',
@@ -127,11 +119,15 @@ test('applies a custom column header color and button text', () => {
 
 test('expands a row to show its configured extended data', () => {
   const rowsWithExtraData = [
-    { id: 1, title: 'Flood warning', status: 'Active', description: 'River rising' },
+    {
+      id: 1,
+      title: 'Flood warning',
+      status: 'Active',
+      description: 'River rising',
+    },
   ];
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['title', 'status']}
       data={rowsWithExtraData}
       severityColumns={[]}
@@ -160,7 +156,6 @@ test('expands a row to show its configured extended data', () => {
 test('keeps selection on the same alert after sorting and selects only visible rows', () => {
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['title', 'status']}
       data={data}
       severityColumns={[]}
@@ -178,7 +173,9 @@ test('keeps selection on the same alert after sorting and selects only visible r
   fireEvent.click(titleSortButton);
   fireEvent.click(titleSortButton);
 
-  const secondVisibleRow = screen.getByRole('checkbox', { name: 'Select row 2' });
+  const secondVisibleRow = screen.getByRole('checkbox', {
+    name: 'Select row 2',
+  });
   expect(secondVisibleRow).toBeChecked();
   expect(screen.getByRole('cell', { name: 'Flood warning' })).toHaveStyle({
     background: '#e6f4ff',
@@ -205,7 +202,6 @@ test('formats numeric severity values in each selected column', () => {
   ];
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['severity', 'alternateSeverity']}
       data={severityData}
       severityColumns={['severity', 'alternateSeverity']}
@@ -246,7 +242,6 @@ test('formats text severity labels as badges', () => {
   ];
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['severity']}
       data={severityData}
       severityColumns={['severity']}
@@ -269,7 +264,6 @@ test('formats text severity labels as badges', () => {
 test('applies configured badge labels and colors to matching column values', () => {
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['severity_text']}
       data={[
         { id: 1, severity_text: 'Low' },
@@ -303,7 +297,6 @@ test('applies configured badge labels and colors to matching column values', () 
 test('matches badge rules when a column has a display label alias', () => {
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['Severity']}
       columnAliases={{ Severity: ['severity_text'] }}
       data={[{ id: 1, Severity: 'Medium', severity_text: 'Medium' }]}
@@ -328,7 +321,6 @@ test('matches badge rules when a column has a display label alias', () => {
 test('shows an error for invalid configured badge rules', () => {
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['severity_text']}
       data={[{ id: 1, severity_text: 'Low' }]}
       severityColumns={[]}
@@ -352,7 +344,6 @@ test('shows an error for invalid configured badge rules', () => {
 test('matches numeric configured badge values', () => {
   render(
     <AlertTable
-      buttonText="Create report"
       columns={['Severity']}
       data={[{ id: 1, Severity: '7', severity_value: 7 }]}
       severityColumns={[]}
