@@ -495,7 +495,7 @@ export default function AlertTable({
           }}
         >
           {t(
-            'Badge rules on lines %(lines)s are invalid. Use column | source value | badge text | hex color.',
+            'Badge rules on lines %(lines)s are invalid. Use source value | badge text | hex color.',
             { lines: invalidBadgeRuleLines.join(', ') },
           )}
         </div>

@@ -281,7 +281,7 @@ test('applies configured badge labels and colors to matching column values', () 
       badgeColumn="severity_text"
       badgeValueColumn="severity_text"
       badgeDataType="text"
-      badgeRules="Low | Minor | #1677ff\nSevere | Critical | #ff0000"
+      badgeRules={'Low | Minor | #1677ff\nSevere | Critical | #ff0000'}
       extendedColumns={[]}
       rowIdColumn="id"
       height={400}
