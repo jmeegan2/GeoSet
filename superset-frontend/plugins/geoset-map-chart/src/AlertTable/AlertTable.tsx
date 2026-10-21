@@ -435,7 +435,6 @@ export default function AlertTable({
           <Input
             aria-label={t('Search %(count)s records', { count: data.length })}
             placeholder={t('%(count)s records...', { count: data.length })}
-            size="small"
             value={searchText}
             onChange={event => setSearchText(event.target.value)}
           />
