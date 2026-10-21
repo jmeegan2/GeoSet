@@ -122,13 +122,15 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
         'location',
         'estimated_event_location',
       ]);
-      return [
-        `Alert ${index + 1}${eventType ? ` — ${eventType}` : ''}`,
+      const details = [
+        eventType,
         headline ? `Summary: ${headline}` : '',
         alertLocation ? `Location: ${alertLocation}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
+      ].filter(Boolean);
+      if (details.length > 0) {
+        details[0] = `${details[0]} (Source ${index + 1})`;
+      }
+      return details.join('\n');
     })
     .filter(Boolean)
     .join('\n\n');
@@ -150,7 +152,7 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
         'inserted_time',
       ]);
       return [
-        `Alert ${index + 1}`,
+        `Source ${index + 1}`,
         sourceAttribution,
         sourceUrl,
         formatReportTimestamp(timestamp),

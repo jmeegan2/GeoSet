@@ -80,14 +80,14 @@ test('prefills from selected alert rows', () => {
   );
 
   expect(
-    screen.queryByDisplayValue(/Alert 1[\s\S]*Summary: Flood warning issued/),
+    screen.queryByDisplayValue(/Summary: Flood warning issued/),
   ).not.toBeNull();
   expect(
     screen.queryByDisplayValue('Bay County, FL; San Clemente, CA'),
   ).not.toBeNull();
   expect(
     screen.queryByDisplayValue(
-      /Alert 1 • Local authority • https:\/\/example\.test\/source\/DEMO-001 • .*/,
+      /Source 1 • Local authority • https:\/\/example\.test\/source\/DEMO-001 • .*/,
     ),
   ).not.toBeNull();
   expect(screen.getByText(/Prefilled from 2 selected alerts/)).toBeTruthy();
