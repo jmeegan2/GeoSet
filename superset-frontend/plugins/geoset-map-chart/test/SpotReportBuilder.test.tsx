@@ -115,3 +115,54 @@ test('prefills from selected alert rows', () => {
   ).not.toBeNull();
   expect(screen.getByText(/Prefilled from 2 selected alerts/)).toBeTruthy();
 });
+
+test('includes agentic context in the situation summary', () => {
+  render(<SpotReportBuilder {...props} />);
+
+  window.dispatchEvent(
+    new CustomEvent(SPOT_REPORT_REQUEST_EVENT, {
+      detail: {
+        rows: [
+          {
+            headline: 'Flood warning issued',
+            location_name: 'Bay County, FL',
+            agentic_context: JSON.stringify({
+              emergency_response: 'Shelters opened',
+              property_damage: 'Several homes damaged',
+            }),
+          },
+        ],
+      },
+    }),
+  );
+
+  expect(
+    screen.queryByDisplayValue(
+      /Emergency response: Shelters opened[\s\S]*Property damage: Several homes damaged/,
+    ),
+  ).not.toBeNull();
+});
+
+test('includes Python-style agentic context in the situation summary', () => {
+  render(<SpotReportBuilder {...props} />);
+
+  window.dispatchEvent(
+    new CustomEvent(SPOT_REPORT_REQUEST_EVENT, {
+      detail: {
+        rows: [
+          {
+            headline: 'Power outage reported',
+            agentic_context:
+              "{'status': 'Outage ongoing', 'primary_cause': 'Cause under investigation'}",
+          },
+        ],
+      },
+    }),
+  );
+
+  expect(
+    screen.queryByDisplayValue(
+      /Primary cause: Cause under investigation[\s\S]*Status: Outage ongoing/,
+    ),
+  ).not.toBeNull();
+});

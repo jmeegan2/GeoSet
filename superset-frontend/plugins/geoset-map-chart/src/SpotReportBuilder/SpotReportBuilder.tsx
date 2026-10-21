@@ -99,6 +99,67 @@ function formatReportTimestamp(value: string): string {
   });
 }
 
+const AGENTIC_CONTEXT_FIELDS = [
+  ['primary_cause', 'Primary cause'],
+  ['status', 'Status'],
+  ['emergency_response', 'Emergency response'],
+  ['property_damage', 'Property damage'],
+  ['casualties', 'Casualties'],
+  ['travel_disruptions', 'Travel disruptions'],
+  ['weather_forecasts', 'Weather and forecasts'],
+  ['start_date_time', 'Start date and time'],
+] as const;
+
+function parseAgenticContext(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== 'string') {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    // Some PostgreSQL/Superset responses serialize JSONB as a Python-style
+    // object literal using single quotes instead of valid JSON.
+    const context: Record<string, unknown> = {};
+    const entryPattern =
+      /'([^']+)'\s*:\s*'([^']*)'|"([^"]+)"\s*:\s*"([^"]*)"/g;
+    for (const match of value.matchAll(entryPattern)) {
+      const key = match[1] || match[3];
+      const entryValue = match[2] || match[4];
+      if (key) {
+        context[key] = entryValue;
+      }
+    }
+    return context;
+  }
+}
+
+function formatAgenticContextValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map(formatAgenticContextValue).join('; ');
+  }
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
+function getAgenticContextSummary(row: DataRecord): string[] {
+  const context = parseAgenticContext(row.agentic_context);
+  return AGENTIC_CONTEXT_FIELDS.flatMap(([key, label]) => {
+    const value = context[key];
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return [];
+    }
+    return `${label}: ${formatAgenticContextValue(value)}`;
+  });
+}
+
 function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
   const firstRow = rows[0] || {};
   const eventName = getFirstValue(firstRow, [
@@ -134,6 +195,7 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
         eventType,
         headline ? `Summary: ${headline}` : '',
         alertLocation ? `Location: ${alertLocation}` : '',
+        ...getAgenticContextSummary(row),
       ].filter(Boolean);
       if (details.length > 0) {
         details.push(`Source ${index + 1}`);
@@ -219,6 +281,16 @@ export default function SpotReportBuilder({
 
   useEffect(() => {
     const unsubscribe = subscribeToSpotReportRequest(rows => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.info(
+          '[GeoSet Spot Report Builder] Received rows',
+          rows.map(row => ({
+            alertId: row.alert_id,
+            keys: Object.keys(row),
+            agenticContext: row.agentic_context,
+          })),
+        );
+      }
       if (rows.length === 0) {
         setSelectedAlertCount(0);
         return;
@@ -351,32 +423,23 @@ export default function SpotReportBuilder({
           </Form.Item>
         </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gap: '0 24px',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          }}
-        >
-          <div>
-            <Typography.Title level={4}>
-              {t('2. Impact / Situation')}
-            </Typography.Title>
-            <Form.Item label={t('Situation summary')} name="situation">
-              <Input.TextArea rows={4} />
-            </Form.Item>
-          </div>
-          <div>
-            <Typography.Title level={4}>
-              {t('3. ACF Program Context')}
-            </Typography.Title>
-            <Form.Item
-              label={t('Potential program impacts (optional)')}
-              name="programImpacts"
-            >
-              <Input.TextArea rows={4} />
-            </Form.Item>
-          </div>
+        <Typography.Title level={4}>
+          {t('2. Impact / Situation')}
+        </Typography.Title>
+        <Form.Item label={t('Situation summary')} name="situation">
+          <Input.TextArea autoSize={{ minRows: 4, maxRows: 20 }} />
+        </Form.Item>
+
+        <div>
+          <Typography.Title level={4}>
+            {t('3. ACF Program Context')}
+          </Typography.Title>
+          <Form.Item
+            label={t('Potential program impacts (optional)')}
+            name="programImpacts"
+          >
+            <Input.TextArea autoSize={{ minRows: 4, maxRows: 12 }} />
+          </Form.Item>
         </div>
 
         <Typography.Title level={4}>{t('4. Sources')}</Typography.Title>

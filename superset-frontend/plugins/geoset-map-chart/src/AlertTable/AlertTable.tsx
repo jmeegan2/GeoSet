@@ -427,7 +427,19 @@ export default function AlertTable({
         </span>
         <button
           disabled={!rowIdentityIsValid || selectedRows.size === 0}
-          onClick={() => publishSpotReportRequest(selectedData)}
+          onClick={() => {
+            if (process.env.NODE_ENV !== 'production') {
+              console.info(
+                '[GeoSet AlertTable] Spot Report rows',
+                selectedData.map(row => ({
+                  alertId: row.alert_id,
+                  keys: Object.keys(row),
+                  agenticContext: row.agentic_context,
+                })),
+              );
+            }
+            publishSpotReportRequest(selectedData);
+          }}
           title={t('Create a SPOT report from the selected alerts.')}
           type="button"
           style={{

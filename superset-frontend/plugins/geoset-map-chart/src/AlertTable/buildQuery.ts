@@ -37,6 +37,7 @@ export default function buildQuery(formData: AlertTableFormData) {
     'alert_timestamp',
     'source_url',
     'source_attribution',
+    'agentic_context',
     'alert_id',
     'event_id',
   ];
