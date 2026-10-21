@@ -239,6 +239,7 @@ export default function AlertTable({
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [searchText, setSearchText] = useState('');
+  const [spotReportProcessing, setSpotReportProcessing] = useState(false);
   const [sortBy, setSortBy] = useState<{
     column: string;
     descending: boolean;
@@ -408,9 +409,23 @@ export default function AlertTable({
           </Typography.Text>
         </div>
         <Button
-          disabled={!rowIdentityIsValid || selectedRows.size === 0}
-          onClick={() => publishSpotReportRequest(selectedData)}
-          title={t('Create a SPOT report from the selected alerts.')}
+          disabled={
+            !rowIdentityIsValid ||
+            selectedRows.size === 0 ||
+            spotReportProcessing
+          }
+          onClick={() => {
+            setSpotReportProcessing(true);
+            publishSpotReportRequest(selectedData, () =>
+              setSpotReportProcessing(false),
+            );
+          }}
+          loading={spotReportProcessing}
+          title={
+            spotReportProcessing
+              ? t('Preparing the SPOT report.')
+              : t('Create a SPOT report from the selected alerts.')
+          }
           type="primary"
         >
           {t('Create SPOT Report')}

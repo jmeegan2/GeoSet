@@ -414,32 +414,37 @@ export default function SpotReportBuilder({
   };
 
   const importSelectedAlerts = useCallback(
-    async (rows: DataRecord[]) => {
-      form.setFieldsValue(valuesFromSelectedAlerts(rows));
-      setSelectedAlertCount(rows.length);
-      isDirtyRef.current = false;
-      setCopied(false);
-      const acfContext = await getAcfProgramContext(rows);
-      if (process.env.NODE_ENV !== 'production') {
-        console.info(
-          '[GeoSet Spot Report Builder] Setting ACF context',
-          acfContext,
-        );
+    async (rows: DataRecord[], onComplete: () => void) => {
+      try {
+        form.setFieldsValue(valuesFromSelectedAlerts(rows));
+        setSelectedAlertCount(rows.length);
+        isDirtyRef.current = false;
+        setCopied(false);
+        const acfContext = await getAcfProgramContext(rows);
+        if (process.env.NODE_ENV !== 'production') {
+          console.info(
+            '[GeoSet Spot Report Builder] Setting ACF context',
+            acfContext,
+          );
+        }
+        form.setFieldsValue({ programImpacts: acfContext });
+      } finally {
+        onComplete();
       }
-      form.setFieldsValue({ programImpacts: acfContext });
     },
     [form],
   );
 
   useEffect(() => {
-    const unsubscribe = subscribeToSpotReportRequest(rows => {
+    const unsubscribe = subscribeToSpotReportRequest((rows, onComplete) => {
       if (rows.length === 0) {
         setSelectedAlertCount(0);
+        onComplete();
         return;
       }
 
       if (!isDirtyRef.current) {
-        importSelectedAlerts(rows);
+        importSelectedAlerts(rows, onComplete);
         return;
       }
 
@@ -450,7 +455,8 @@ export default function SpotReportBuilder({
           'Importing these alerts will replace the current report fields.',
         ),
         okText: t('Replace draft'),
-        onOk: () => importSelectedAlerts(rows),
+        onCancel: onComplete,
+        onOk: () => importSelectedAlerts(rows, onComplete),
         title: t('Replace current draft?'),
       });
     });

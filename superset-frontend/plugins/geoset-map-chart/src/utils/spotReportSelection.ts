@@ -13,28 +13,35 @@ export const SPOT_REPORT_REQUEST_EVENT = 'geoset:spot-report-request';
 
 type SpotReportSelectionDetail = {
   rows: DataRecord[];
+  onComplete: () => void;
 };
 
-export function publishSpotReportRequest(rows: DataRecord[]) {
+export function publishSpotReportRequest(
+  rows: DataRecord[],
+  onComplete: () => void,
+) {
   if (typeof window === 'undefined') {
     return;
   }
   window.dispatchEvent(
     new CustomEvent<SpotReportSelectionDetail>(SPOT_REPORT_REQUEST_EVENT, {
-      detail: { rows },
+      detail: { rows, onComplete },
     }),
   );
 }
 
 export function subscribeToSpotReportRequest(
-  callback: (rows: DataRecord[]) => void,
+  callback: (rows: DataRecord[], onComplete: () => void) => void,
 ) {
   if (typeof window === 'undefined') {
     return () => {};
   }
   const handleSelection = (event: Event) => {
     const { detail } = event as CustomEvent<SpotReportSelectionDetail>;
-    callback(Array.isArray(detail?.rows) ? detail.rows : []);
+    callback(
+      Array.isArray(detail?.rows) ? detail.rows : [],
+      detail?.onComplete ?? (() => {}),
+    );
   };
   window.addEventListener(SPOT_REPORT_REQUEST_EVENT, handleSelection);
   return () =>
