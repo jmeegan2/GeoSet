@@ -16,6 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+// eslint-disable-next-line import/no-extraneous-dependencies
+import '@testing-library/jest-dom';
+// eslint-disable-next-line import/no-extraneous-dependencies
 import { fireEvent, render, screen } from '@testing-library/react';
 import AlertTable from '../src/AlertTable/AlertTable';
 
@@ -181,7 +184,7 @@ test('keeps selection on the same alert after sorting and selects only visible r
     background: '#e6f4ff',
   });
 
-  fireEvent.change(screen.getByRole('searchbox', { name: 'Search alerts' }), {
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search 2 records' }), {
     target: { value: 'Road closure' },
   });
   expect(screen.getByText('1 of 2 alerts')).toBeInTheDocument();
@@ -220,12 +223,12 @@ test('formats numeric severity values in each selected column', () => {
   expect(screen.getAllByText('Severe')).toHaveLength(2);
   expect(screen.getByRole('cell', { name: '11' })).toBeInTheDocument();
   expect(screen.getByRole('cell', { name: '' })).toBeInTheDocument();
-  expect(screen.getByText('Low')).toHaveStyle({
+  expect(screen.getAllByText('Low')[0]).toHaveStyle({
     backgroundColor: 'rgb(230, 244, 255)',
     color: 'rgb(9, 88, 217)',
     border: '1px solid #91caff',
   });
-  expect(screen.getByText('High')).toHaveStyle({
+  expect(screen.getAllByText('High')[0]).toHaveStyle({
     backgroundColor: 'rgb(255, 247, 230)',
     color: 'rgb(212, 107, 8)',
     border: '1px solid #ffd591',

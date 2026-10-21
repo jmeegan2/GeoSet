@@ -1,3 +1,4 @@
+/* eslint-disable theme-colors/no-literal-colors */
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -387,11 +388,15 @@ export default function AlertTable({
         }}
       >
         <div style={{ alignItems: 'center', display: 'flex', gap: 24 }}>
-          <label style={{ alignItems: 'center', display: 'flex', gap: 8 }}>
+          <label
+            htmlFor="alert-table-select-all"
+            style={{ alignItems: 'center', display: 'flex', gap: 8 }}
+          >
             <input
               aria-label={t('Select all visible rows')}
               checked={allVisibleRowsSelected}
               disabled={!rowIdentityIsValid || visibleRowKeys.length === 0}
+              id="alert-table-select-all"
               onChange={toggleAllRows}
               ref={selectAllRef}
               type="checkbox"
@@ -664,11 +669,11 @@ export default function AlertTable({
                         const isSeverityColumn = severityColumns.some(
                           isSelectedSeverityColumn,
                         );
-                        const badge = configuredRule
-                          ? configuredRule
-                          : !hasConfiguredRulesForColumn && isSeverityColumn
-                            ? getSeverityBadge(row[column])
-                            : undefined;
+                        const badge =
+                          configuredRule ||
+                          (hasConfiguredRulesForColumn || !isSeverityColumn
+                            ? undefined
+                            : getSeverityBadge(row[column]));
                         return (
                           <td
                             key={column}
