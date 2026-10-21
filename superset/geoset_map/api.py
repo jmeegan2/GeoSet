@@ -107,7 +107,7 @@ class GeoSetMapRestApi(BaseSupersetApi):
     @expose("/acf_program_counts/", methods=("GET",))
     @protect()
     @safe
-    @permission_name("read")
+    @permission_name("mapbox_api_key")
     def acf_program_counts(self) -> Response:
         """Return ACF program location counts for selected alert counties."""
         alert_ids = {
