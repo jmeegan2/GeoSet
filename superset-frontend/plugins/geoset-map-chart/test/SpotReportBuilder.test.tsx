@@ -48,7 +48,32 @@ test('clears the report and copies edited text', async () => {
   );
 
   fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Clear draft' }));
   expect(screen.queryByDisplayValue(props.defaultEventName)).toBeNull();
+});
+
+test('asks before replacing an edited draft with new alerts', async () => {
+  render(<SpotReportBuilder {...props} />);
+
+  fireEvent.change(screen.getByDisplayValue(props.defaultEventName), {
+    target: { value: 'My edited event' },
+  });
+
+  window.dispatchEvent(
+    new CustomEvent(SPOT_REPORT_REQUEST_EVENT, {
+      detail: {
+        rows: [{ headline: 'New alert', location_name: 'New location' }],
+      },
+    }),
+  );
+
+  expect((await screen.findAllByText('Replace current draft?')).length).toBe(2);
+  expect(screen.getByDisplayValue('My edited event')).toBeTruthy();
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Replace draft' }));
+
+  expect(screen.queryByDisplayValue('My edited event')).toBeNull();
+  expect(screen.getByDisplayValue('New location')).toBeTruthy();
 });
 
 test('prefills from selected alert rows', () => {
@@ -86,9 +111,7 @@ test('prefills from selected alert rows', () => {
     screen.queryByDisplayValue('Bay County, FL; San Clemente, CA'),
   ).not.toBeNull();
   expect(
-    screen.queryByDisplayValue(
-      /Source 1 • Local authority • https:\/\/example\.test\/source\/DEMO-001 • .*/,
-    ),
+    screen.queryByDisplayValue(/Source 1[\s\S]*Local authority[\s\S]*DEMO-001/),
   ).not.toBeNull();
   expect(screen.getByText(/Prefilled from 2 selected alerts/)).toBeTruthy();
 });

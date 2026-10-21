@@ -10,9 +10,17 @@
  *
  *   http://www.apache.org/licenses/LICENSE-2.0
  */
-import { Button, Form, Input, Select, Space, Typography } from 'antd';
+import {
+  Button,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Typography,
+} from 'antd';
 import { DataRecord, t } from '@superset-ui/core';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { subscribeToSpotReportRequest } from '../utils/spotReportSelection';
 
 export interface SpotReportBuilderProps {
@@ -128,7 +136,7 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
         alertLocation ? `Location: ${alertLocation}` : '',
       ].filter(Boolean);
       if (details.length > 0) {
-        details[0] = `${details[0]} (Source ${index + 1})`;
+        details.push(`Source ${index + 1}`);
       }
       return details.join('\n');
     })
@@ -151,17 +159,22 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
         'Time',
         'inserted_time',
       ]);
+      const sourceDetails = [
+        sourceAttribution,
+        formatReportTimestamp(timestamp),
+      ]
+        .filter(Boolean)
+        .join(' • ');
       return [
         `Source ${index + 1}`,
-        sourceAttribution,
+        sourceDetails,
         sourceUrl,
-        formatReportTimestamp(timestamp),
       ]
         .filter(Boolean)
         .join(' • ');
     })
     .filter(Boolean)
-    .join('\n');
+    .join('\n\n');
 
   return {
     eventName,
@@ -183,6 +196,7 @@ export default function SpotReportBuilder({
 }: SpotReportBuilderProps) {
   const [form] = Form.useForm<ReportValues>();
   const [copied, setCopied] = useState(false);
+  const isDirtyRef = useRef(false);
   const [selectedAlertCount, setSelectedAlertCount] = useState(0);
   const initialValues: ReportValues = {
     eventName: defaultEventName,
@@ -193,16 +207,42 @@ export default function SpotReportBuilder({
     sources: defaultSources,
   };
 
-  useEffect(
-    () =>
-      subscribeToSpotReportRequest(rows => {
-        setSelectedAlertCount(rows.length);
-        if (rows.length > 0) {
-          form.setFieldsValue(valuesFromSelectedAlerts(rows));
-        }
-      }),
+  const importSelectedAlerts = useCallback(
+    (rows: DataRecord[]) => {
+      form.setFieldsValue(valuesFromSelectedAlerts(rows));
+      setSelectedAlertCount(rows.length);
+      isDirtyRef.current = false;
+      setCopied(false);
+    },
     [form],
   );
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSpotReportRequest(rows => {
+      if (rows.length === 0) {
+        setSelectedAlertCount(0);
+        return;
+      }
+
+      if (!isDirtyRef.current) {
+        importSelectedAlerts(rows);
+        return;
+      }
+
+      Modal.confirm({
+        cancelText: t('Keep draft'),
+        centered: true,
+        content: t(
+          'Importing these alerts will replace the current report fields.',
+        ),
+        okText: t('Replace draft'),
+        onOk: () => importSelectedAlerts(rows),
+        title: t('Replace current draft?'),
+      });
+    });
+
+    return unsubscribe;
+  }, [importSelectedAlerts]);
 
   const copyReport = async () => {
     const reportText = buildReportText(form.getFieldsValue());
@@ -215,13 +255,35 @@ export default function SpotReportBuilder({
   };
 
   const clearReport = () => {
-    form.setFieldsValue({
-      eventName: '',
-      status: '',
-      location: '',
-      situation: '',
-      programImpacts: '',
-      sources: '',
+    const hasReportContent = Object.values(form.getFieldsValue()).some(
+      value => String(value ?? '').trim() !== '',
+    );
+    const clear = () => {
+      form.setFieldsValue({
+        eventName: '',
+        status: '',
+        location: '',
+        situation: '',
+        programImpacts: '',
+        sources: '',
+      });
+      setSelectedAlertCount(0);
+      isDirtyRef.current = false;
+      setCopied(false);
+    };
+
+    if (!hasReportContent) {
+      clear();
+      return;
+    }
+
+    Modal.confirm({
+      cancelText: t('Cancel'),
+      centered: true,
+      content: t('This will remove the current report fields.'),
+      okText: t('Clear draft'),
+      onOk: clear,
+      title: t('Clear report draft?'),
     });
   };
 
@@ -265,7 +327,10 @@ export default function SpotReportBuilder({
         form={form}
         initialValues={initialValues}
         layout="vertical"
-        onValuesChange={() => setCopied(false)}
+        onValuesChange={() => {
+          setCopied(false);
+          isDirtyRef.current = true;
+        }}
       >
         <Typography.Title level={4}>{t('1. Event Overview')}</Typography.Title>
         <div
