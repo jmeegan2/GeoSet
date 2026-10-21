@@ -18,7 +18,7 @@
  * under the License.
  */
 import { t, DataRecord } from '@superset-ui/core';
-import { Button, Input, Space } from 'antd';
+import { Button, Input, Space, Typography } from 'antd';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { publishSpotReportRequest } from '../utils/spotReportSelection';
 
@@ -384,10 +384,10 @@ export default function AlertTable({
           borderBottom: '1px solid #d9d9d9',
           display: 'flex',
           justifyContent: 'space-between',
-          padding: '8px 12px',
+          padding: '12px 16px',
         }}
       >
-        <div style={{ alignItems: 'center', display: 'flex', gap: 24 }}>
+        <div style={{ alignItems: 'center', display: 'flex', gap: 16 }}>
           <label
             htmlFor="alert-table-select-all"
             style={{ alignItems: 'center', display: 'flex', gap: 8 }}
@@ -403,9 +403,9 @@ export default function AlertTable({
             />
             {t('Select all visible')}
           </label>
-          <span aria-live="polite">
+          <Typography.Text aria-live="polite" type="secondary">
             {t('%(count)s selected', { count: selectedRows.size })}
-          </span>
+          </Typography.Text>
         </div>
         <Button
           disabled={!rowIdentityIsValid || selectedRows.size === 0}
@@ -421,20 +421,21 @@ export default function AlertTable({
           alignItems: 'center',
           display: 'flex',
           justifyContent: 'space-between',
-          padding: '8px 12px',
+          padding: '8px 16px 12px',
         }}
       >
-        <span>
+        <Typography.Text type="secondary">
           {t('%(visible)s of %(total)s alerts', {
             visible: visibleRows.length,
             total: data.length,
           })}
-        </span>
-        <Space direction="horizontal" size={4}>
-          {t('Search')}
+        </Typography.Text>
+        <Space direction="horizontal" size={8}>
+          <Typography.Text type="secondary">{t('Search')}</Typography.Text>
           <Input
             aria-label={t('Search %(count)s records', { count: data.length })}
             placeholder={t('%(count)s records...', { count: data.length })}
+            style={{ width: 240 }}
             value={searchText}
             onChange={event => setSearchText(event.target.value)}
           />
