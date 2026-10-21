@@ -17,6 +17,7 @@
  * under the License.
  */
 import { t, DataRecord } from '@superset-ui/core';
+import { Input, Space } from 'antd';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { publishSpotReportRequest } from '../utils/spotReportSelection';
 
@@ -411,35 +412,25 @@ export default function AlertTable({
           padding: '8px 12px',
         }}
       >
-        <label style={{ alignItems: 'center', display: 'flex', gap: 8 }}>
-          <input
-            aria-label={t('Select all visible rows')}
-            checked={allVisibleRowsSelected}
-            disabled={!rowIdentityIsValid || visibleRowKeys.length === 0}
-            onChange={toggleAllRows}
-            ref={selectAllRef}
-            type="checkbox"
-          />
-          {t('Select all visible')}
-        </label>
-        <span aria-live="polite">
-          {t('%(count)s selected', { count: selectedRows.size })}
-        </span>
+        <div style={{ alignItems: 'center', display: 'flex', gap: 24 }}>
+          <label style={{ alignItems: 'center', display: 'flex', gap: 8 }}>
+            <input
+              aria-label={t('Select all visible rows')}
+              checked={allVisibleRowsSelected}
+              disabled={!rowIdentityIsValid || visibleRowKeys.length === 0}
+              onChange={toggleAllRows}
+              ref={selectAllRef}
+              type="checkbox"
+            />
+            {t('Select all visible')}
+          </label>
+          <span aria-live="polite">
+            {t('%(count)s selected', { count: selectedRows.size })}
+          </span>
+        </div>
         <button
           disabled={!rowIdentityIsValid || selectedRows.size === 0}
-          onClick={() => {
-            if (process.env.NODE_ENV !== 'production') {
-              console.info(
-                '[GeoSet AlertTable] Spot Report rows',
-                selectedData.map(row => ({
-                  alertId: row.alert_id,
-                  keys: Object.keys(row),
-                  agenticContext: row.agentic_context,
-                })),
-              );
-            }
-            publishSpotReportRequest(selectedData);
-          }}
+          onClick={() => publishSpotReportRequest(selectedData)}
           title={t('Create a SPOT report from the selected alerts.')}
           type="button"
           style={{
@@ -465,19 +456,21 @@ export default function AlertTable({
           padding: '8px 12px',
         }}
       >
-        <input
-          aria-label={t('Search alerts')}
-          onChange={event => setSearchText(event.target.value)}
-          placeholder={t('Search alerts')}
-          type="search"
-          value={searchText}
-        />
         <span>
           {t('%(visible)s of %(total)s alerts', {
             visible: visibleRows.length,
             total: data.length,
           })}
         </span>
+        <Space direction="horizontal" size={4}>
+          {t('Search')}
+          <Input
+            aria-label={t('Search %(count)s records', { count: data.length })}
+            placeholder={t('%(count)s records...', { count: data.length })}
+            value={searchText}
+            onChange={event => setSearchText(event.target.value)}
+          />
+        </Space>
       </div>
       {!rowIdentityIsValid && (
         <div
@@ -529,17 +522,19 @@ export default function AlertTable({
       {badgeConfiguration &&
         badgeRulesText.trim() === '' &&
         configuredBadgeRules.length === 0 && (
-        <div
-          role="alert"
-          style={{
-            background: '#fffbe6',
-            color: '#ad6800',
-            padding: '8px 12px',
-          }}
-        >
-          {t('Badge configuration is enabled, but no valid badge rules are set.')}
-        </div>
-      )}
+          <div
+            role="alert"
+            style={{
+              background: '#fffbe6',
+              color: '#ad6800',
+              padding: '8px 12px',
+            }}
+          >
+            {t(
+              'Badge configuration is enabled, but no valid badge rules are set.',
+            )}
+          </div>
+        )}
       <div style={{ flex: 1, overflow: 'auto' }}>
         <table
           style={{
@@ -708,8 +703,7 @@ export default function AlertTable({
                         );
                         const badge = configuredRule
                           ? configuredRule
-                          : !hasConfiguredRulesForColumn &&
-                              isSeverityColumn
+                          : !hasConfiguredRulesForColumn && isSeverityColumn
                             ? getSeverityBadge(row[column])
                             : undefined;
                         return (

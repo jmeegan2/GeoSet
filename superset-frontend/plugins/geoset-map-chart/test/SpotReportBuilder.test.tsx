@@ -24,6 +24,22 @@ const props = {
   width: 1200,
 };
 
+const originalFetch = global.fetch;
+const fetchMock = jest.fn();
+
+beforeEach(() => {
+  fetchMock.mockResolvedValue({
+    json: async () => ({ result: { counties: [] } }),
+    ok: true,
+  });
+  global.fetch = fetchMock as unknown as typeof fetch;
+});
+
+afterEach(() => {
+  fetchMock.mockReset();
+  global.fetch = originalFetch;
+});
+
 test('renders editable report fields and defaults', () => {
   render(<SpotReportBuilder {...props} />);
 
@@ -105,13 +121,13 @@ test('prefills from selected alert rows', () => {
   );
 
   expect(
-    screen.queryByDisplayValue(/Summary: Flood warning issued/),
+    screen.queryByDisplayValue(/Bay County, FL[\s\S]*Flood warning issued/),
   ).not.toBeNull();
   expect(
     screen.queryByDisplayValue('Bay County, FL; San Clemente, CA'),
   ).not.toBeNull();
   expect(
-    screen.queryByDisplayValue(/Source 1[\s\S]*Local authority[\s\S]*DEMO-001/),
+    screen.queryByDisplayValue(/Alert 1[\s\S]*Local authority[\s\S]*DEMO-001/),
   ).not.toBeNull();
   expect(screen.getByText(/Prefilled from 2 selected alerts/)).toBeTruthy();
 });
@@ -137,9 +153,7 @@ test('includes agentic context in the situation summary', () => {
   );
 
   expect(
-    screen.queryByDisplayValue(
-      /Emergency response: Shelters opened[\s\S]*Property damage: Several homes damaged/,
-    ),
+    screen.queryByDisplayValue(/Emergency response: Shelters opened/),
   ).not.toBeNull();
 });
 
@@ -162,7 +176,42 @@ test('includes Python-style agentic context in the situation summary', () => {
 
   expect(
     screen.queryByDisplayValue(
-      /Primary cause: Cause under investigation[\s\S]*Status: Outage ongoing/,
+      /Status: Outage ongoing[\s\S]*Primary cause: Cause under investigation/,
     ),
   ).not.toBeNull();
+});
+
+test('adds county-level ACF program context for selected alerts', async () => {
+  render(<SpotReportBuilder {...props} />);
+
+  fetchMock.mockResolvedValueOnce({
+    json: async () => ({
+      result: {
+        counties: [
+          {
+            alert_id: 'alert-1',
+            county_name: 'Bay',
+            location_count: 12,
+            state_code: '12',
+          },
+        ],
+      },
+    }),
+    ok: true,
+  });
+  window.dispatchEvent(
+    new CustomEvent(SPOT_REPORT_REQUEST_EVENT, {
+      detail: {
+        rows: [{ alert_id: 'alert-1', location_name: 'Bay County, FL, USA' }],
+      },
+    }),
+  );
+  expect(
+    await screen.findByDisplayValue(
+      'Alert 1 — Bay County, Florida: There are 12 ACF program locations.',
+    ),
+  ).toBeTruthy();
+  expect(fetchMock).toHaveBeenCalledWith(
+    '/api/v1/geoset_map/acf_program_counts/?alert_ids=alert-1',
+  );
 });

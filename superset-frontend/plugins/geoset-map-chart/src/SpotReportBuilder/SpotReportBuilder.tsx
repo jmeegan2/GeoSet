@@ -10,15 +10,7 @@
  *
  *   http://www.apache.org/licenses/LICENSE-2.0
  */
-import {
-  Button,
-  Form,
-  Input,
-  Modal,
-  Select,
-  Space,
-  Typography,
-} from 'antd';
+import { Button, Form, Input, Modal, Space, Typography } from 'antd';
 import { DataRecord, t } from '@superset-ui/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { subscribeToSpotReportRequest } from '../utils/spotReportSelection';
@@ -42,13 +34,6 @@ type ReportValues = {
   programImpacts: string;
   sources: string;
 };
-
-const STATUS_OPTIONS = [
-  { value: 'Ongoing', label: t('Ongoing') },
-  { value: 'Monitoring', label: t('Monitoring') },
-  { value: 'Resolved', label: t('Resolved') },
-  { value: 'Draft', label: t('Draft') },
-];
 
 function buildReportText(values: ReportValues): string {
   return [
@@ -80,6 +65,173 @@ function getFirstValue(row: DataRecord, keys: string[]): string {
   return '';
 }
 
+const STATE_NAMES_BY_FIPS: Record<string, string> = {
+  '01': 'Alabama',
+  '02': 'Alaska',
+  '04': 'Arizona',
+  '05': 'Arkansas',
+  '06': 'California',
+  '08': 'Colorado',
+  '09': 'Connecticut',
+  '10': 'Delaware',
+  '11': 'District of Columbia',
+  '12': 'Florida',
+  '13': 'Georgia',
+  '15': 'Hawaii',
+  '16': 'Idaho',
+  '17': 'Illinois',
+  '18': 'Indiana',
+  '19': 'Iowa',
+  '20': 'Kansas',
+  '21': 'Kentucky',
+  '22': 'Louisiana',
+  '23': 'Maine',
+  '24': 'Maryland',
+  '25': 'Massachusetts',
+  '26': 'Michigan',
+  '27': 'Minnesota',
+  '28': 'Mississippi',
+  '29': 'Missouri',
+  '30': 'Montana',
+  '31': 'Nebraska',
+  '32': 'Nevada',
+  '33': 'New Hampshire',
+  '34': 'New Jersey',
+  '35': 'New Mexico',
+  '36': 'New York',
+  '37': 'North Carolina',
+  '38': 'North Dakota',
+  '39': 'Ohio',
+  '40': 'Oklahoma',
+  '41': 'Oregon',
+  '42': 'Pennsylvania',
+  '44': 'Rhode Island',
+  '45': 'South Carolina',
+  '46': 'South Dakota',
+  '47': 'Tennessee',
+  '48': 'Texas',
+  '49': 'Utah',
+  '50': 'Vermont',
+  '51': 'Virginia',
+  '53': 'Washington',
+  '54': 'West Virginia',
+  '55': 'Wisconsin',
+  '56': 'Wyoming',
+  '60': 'American Samoa',
+  '66': 'Guam',
+  '69': 'Northern Mariana Islands',
+  '72': 'Puerto Rico',
+  '78': 'U.S. Virgin Islands',
+};
+
+async function getAcfProgramContext(rows: DataRecord[]): Promise<string> {
+  const alertIds = Array.from(
+    new Set(rows.map(row => getFirstValue(row, ['alert_id'])).filter(Boolean)),
+  );
+  if (alertIds.length === 0) {
+    return '';
+  }
+
+  try {
+    const query = new URLSearchParams();
+    query.set('alert_ids', alertIds.join(','));
+    const response = await fetch(
+      `/api/v1/geoset_map/acf_program_counts/?${query.toString()}`,
+    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[GeoSet Spot Report Builder] ACF lookup response', {
+        ok: response.ok,
+        status: response.status,
+      });
+    }
+    if (!response.ok) {
+      return '';
+    }
+    const data = await response.json();
+    const acfData = data?.result as
+      | {
+          counties?: Array<{
+            alert_id: string;
+            county_name: string;
+            location_count: number;
+            state_code: string;
+          }>;
+        }
+      | undefined;
+    if (!acfData) {
+      return '';
+    }
+    const counties = acfData.counties || [];
+    const alertNumberById = new Map(
+      rows.map((row, index) => [getFirstValue(row, ['alert_id']), index + 1]),
+    );
+    const groupedCounties = new Map<
+      string,
+      {
+        alertNumbers: number[];
+        countyName: string;
+        locationCount: number;
+        stateCode: string;
+      }
+    >();
+    counties.forEach(county => {
+      const countyName = /county$/i.test(county.county_name)
+        ? county.county_name
+        : `${county.county_name} County`;
+      const key = `${countyName}|${county.state_code}`;
+      const group = groupedCounties.get(key) || {
+        alertNumbers: [],
+        countyName,
+        locationCount: county.location_count,
+        stateCode: county.state_code,
+      };
+      const alertNumber = alertNumberById.get(county.alert_id);
+      if (alertNumber && !group.alertNumbers.includes(alertNumber)) {
+        group.alertNumbers.push(alertNumber);
+      }
+      groupedCounties.set(key, group);
+    });
+    const countyLines = Array.from(groupedCounties.values())
+      .sort((a, b) =>
+        Math.min(...a.alertNumbers, Number.MAX_SAFE_INTEGER) -
+        Math.min(...b.alertNumbers, Number.MAX_SAFE_INTEGER),
+      )
+      .map(group => {
+        const stateName = STATE_NAMES_BY_FIPS[group.stateCode];
+        const location = `${group.countyName}${
+          stateName ? `, ${stateName}` : ''
+        }`;
+        const sortedAlertNumbers = group.alertNumbers.sort((a, b) => a - b);
+        const alertLabel =
+          sortedAlertNumbers.length === 1
+            ? `Alert ${sortedAlertNumbers[0]}`
+            : `Alerts ${sortedAlertNumbers
+                .slice(0, -1)
+                .join(', ')} and ${sortedAlertNumbers[
+                sortedAlertNumbers.length - 1
+              ]}`;
+        return `${alertLabel} — ${location}: There ${
+          group.locationCount === 1 ? 'is' : 'are'
+        } ${group.locationCount} ACF program location${
+          group.locationCount === 1 ? '' : 's'
+        }.`;
+      });
+    const context = countyLines.join('\n');
+    if (process.env.NODE_ENV !== 'production') {
+      console.info(
+        '[GeoSet Spot Report Builder] ACF context generated',
+        context,
+      );
+    }
+    return context;
+  } catch {
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[GeoSet Spot Report Builder] ACF lookup failed');
+    }
+    return '';
+  }
+}
+
 function formatReportTimestamp(value: string): string {
   if (!value) {
     return '';
@@ -99,15 +251,20 @@ function formatReportTimestamp(value: string): string {
   });
 }
 
+function getAlertTimestamp(row: DataRecord): string {
+  return getFirstValue(row, ['alert_timestamp', 'Time', 'inserted_time']);
+}
+
 const AGENTIC_CONTEXT_FIELDS = [
-  ['primary_cause', 'Primary cause'],
   ['status', 'Status'],
+  ['primary_cause', 'Primary cause'],
   ['emergency_response', 'Emergency response'],
-  ['property_damage', 'Property damage'],
-  ['casualties', 'Casualties'],
-  ['travel_disruptions', 'Travel disruptions'],
-  ['weather_forecasts', 'Weather and forecasts'],
-  ['start_date_time', 'Start date and time'],
+  // Deferred for a future detailed-intelligence view:
+  // ['property_damage', 'Property damage'],
+  // ['casualties', 'Casualties'],
+  // ['travel_disruptions', 'Travel disruptions'],
+  // ['weather_forecasts', 'Weather and forecasts'],
+  // ['start_date_time', 'Start date and time'],
 ] as const;
 
 function parseAgenticContext(value: unknown): Record<string, unknown> {
@@ -126,8 +283,7 @@ function parseAgenticContext(value: unknown): Record<string, unknown> {
     // Some PostgreSQL/Superset responses serialize JSONB as a Python-style
     // object literal using single quotes instead of valid JSON.
     const context: Record<string, unknown> = {};
-    const entryPattern =
-      /'([^']+)'\s*:\s*'([^']*)'|"([^"]+)"\s*:\s*"([^"]*)"/g;
+    const entryPattern = /'([^']+)'\s*:\s*'([^']*)'|"([^"]+)"\s*:\s*"([^"]*)"/g;
     for (const match of value.matchAll(entryPattern)) {
       const key = match[1] || match[3];
       const entryValue = match[2] || match[4];
@@ -182,7 +338,7 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
     ),
   );
   const location = locations.join('; ');
-  const situation = rows
+  const alertBlocks = rows
     .map((row, index) => {
       const eventType = getFirstValue(row, ['event', 'Event', 'alert_type']);
       const headline = getFirstValue(row, ['headline', 'situation', 'status']);
@@ -191,19 +347,21 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
         'location',
         'estimated_event_location',
       ]);
+      const shortLocation = alertLocation.replace(/,\s*USA$/i, '');
+      const alertTimestamp = getAlertTimestamp(row);
       const details = [
-        eventType,
+        `ALERT ${index + 1}${eventType ? ` — ${eventType}` : ''}${
+          alertTimestamp ? ` — ${formatReportTimestamp(alertTimestamp)}` : ''
+        }`,
+        shortLocation ? `Location: ${shortLocation}` : '',
         headline ? `Summary: ${headline}` : '',
-        alertLocation ? `Location: ${alertLocation}` : '',
         ...getAgenticContextSummary(row),
       ].filter(Boolean);
-      if (details.length > 0) {
-        details.push(`Source ${index + 1}`);
-      }
       return details.join('\n');
     })
     .filter(Boolean)
     .join('\n\n');
+  const situation = alertBlocks;
   const sources = rows
     .map((row, index) => {
       const sourceAttribution = getFirstValue(row, [
@@ -216,24 +374,10 @@ function valuesFromSelectedAlerts(rows: DataRecord[]): Partial<ReportValues> {
         'Source URL ',
         'Source URL',
       ]);
-      const timestamp = getFirstValue(row, [
-        'alert_timestamp',
-        'Time',
-        'inserted_time',
-      ]);
-      const sourceDetails = [
-        sourceAttribution,
-        formatReportTimestamp(timestamp),
-      ]
+      const sourceDetails = [sourceAttribution].filter(Boolean).join(' • ');
+      return [`Alert ${index + 1}`, sourceDetails, sourceUrl]
         .filter(Boolean)
-        .join(' • ');
-      return [
-        `Source ${index + 1}`,
-        sourceDetails,
-        sourceUrl,
-      ]
-        .filter(Boolean)
-        .join(' • ');
+        .join('\n');
     })
     .filter(Boolean)
     .join('\n\n');
@@ -270,27 +414,25 @@ export default function SpotReportBuilder({
   };
 
   const importSelectedAlerts = useCallback(
-    (rows: DataRecord[]) => {
+    async (rows: DataRecord[]) => {
       form.setFieldsValue(valuesFromSelectedAlerts(rows));
       setSelectedAlertCount(rows.length);
       isDirtyRef.current = false;
       setCopied(false);
+      const acfContext = await getAcfProgramContext(rows);
+      if (process.env.NODE_ENV !== 'production') {
+        console.info(
+          '[GeoSet Spot Report Builder] Setting ACF context',
+          acfContext,
+        );
+      }
+      form.setFieldsValue({ programImpacts: acfContext });
     },
     [form],
   );
 
   useEffect(() => {
     const unsubscribe = subscribeToSpotReportRequest(rows => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.info(
-          '[GeoSet Spot Report Builder] Received rows',
-          rows.map(row => ({
-            alertId: row.alert_id,
-            keys: Object.keys(row),
-            agenticContext: row.agentic_context,
-          })),
-        );
-      }
       if (rows.length === 0) {
         setSelectedAlertCount(0);
         return;
@@ -416,7 +558,7 @@ export default function SpotReportBuilder({
             <Input />
           </Form.Item>
           <Form.Item label={t('Status')} name="status">
-            <Select options={STATUS_OPTIONS} />
+            <Input placeholder={t('e.g. Ongoing, Monitoring, or Resolved')} />
           </Form.Item>
           <Form.Item label={t('Location')} name="location">
             <Input />
@@ -424,7 +566,7 @@ export default function SpotReportBuilder({
         </div>
 
         <Typography.Title level={4}>
-          {t('2. Impact / Situation')}
+          {t('2. Impact / Situation Summary')}
         </Typography.Title>
         <Form.Item label={t('Situation summary')} name="situation">
           <Input.TextArea autoSize={{ minRows: 4, maxRows: 20 }} />

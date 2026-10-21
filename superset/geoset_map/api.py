@@ -3,10 +3,14 @@ import os
 import re
 
 from flask import request, Response
+from flask_appbuilder import permission_name
 from flask_appbuilder.api import expose, protect, safe
 from marshmallow import ValidationError
+from sqlalchemy import bindparam, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from superset.constants import MODEL_API_RW_METHOD_PERMISSION_MAP
+from superset.daos.database import DatabaseDAO
 from superset.geoset_map.schemas import (
     GeoSetLayerV1Schema,
     GeoSetLayerV2Schema,
@@ -98,6 +102,82 @@ class GeoSetMapRestApi(BaseSupersetApi):
         result = self.mapbox_api_key_schema.dump(
             {"MAPBOX_API_KEY": os.environ.get("MAPBOX_API_KEY", "")}
         )
+        return self.response(200, result=result)
+
+    @protect()
+    @safe
+    @expose("/acf_program_counts/", methods=("GET",))
+    @permission_name("read")
+    def acf_program_counts(self) -> Response:
+        """Return ACF program location counts for selected alert counties."""
+        alert_ids = {
+            alert_id.strip()
+            for alert_id in request.args.get("alert_ids", "").split(",")
+            if alert_id.strip()
+        }
+        result: dict[str, object] = {"counties": []}
+        if not alert_ids:
+            return self.response(200, result=result)
+
+        database = DatabaseDAO.get_database_by_name(
+            os.environ.get("DART_DATABASE_NAME", "PostgreSQL")
+        )
+        if database is None:
+            return self.response(200, result={})
+
+        try:
+            with database.get_sqla_engine() as engine:
+                with engine.connect() as connection:
+                    if alert_ids:
+                        county_query = text(
+                            """
+                            WITH alert_counties AS (
+                                SELECT DISTINCT
+                                    alerts.alert_id,
+                                    counties.county_name,
+                                    counties.state_code
+                                FROM dataminr_alerts AS alerts
+                                JOIN census_county_boundaries AS counties
+                                  ON ST_Intersects(
+                                      counties.county_boundary,
+                                      alerts.estimated_event_location::geometry
+                                  )
+                                WHERE alerts.alert_id IN :alert_ids
+                            )
+                            SELECT
+                                alert_counties.alert_id,
+                                alert_counties.county_name,
+                                alert_counties.state_code,
+                                COUNT(programs.*) AS location_count
+                            FROM alert_counties
+                            LEFT JOIN mv_latest_program_data AS programs
+                              ON UPPER(TRIM(programs.county_name)) =
+                                 UPPER(TRIM(alert_counties.county_name))
+                             AND LEFT(programs.fips_code, 2) =
+                                 alert_counties.state_code
+                            GROUP BY
+                                alert_counties.alert_id,
+                                alert_counties.county_name,
+                                alert_counties.state_code
+                            """
+                        ).bindparams(bindparam("alert_ids", expanding=True))
+                        county_rows = connection.execute(
+                            county_query, {"alert_ids": list(alert_ids)}
+                        )
+                        result["counties"] = [
+                            {
+                                "alert_id": row.alert_id,
+                                "county_name": row.county_name,
+                                "state_code": row.state_code,
+                                "location_count": int(row.location_count),
+                            }
+                            for row in county_rows
+                        ]
+
+        except SQLAlchemyError:
+            logger.exception("Unable to retrieve ACF program counts")
+            return self.response(200, result={"counties": []})
+
         return self.response(200, result=result)
 
     @expose("/schema/<version>", methods=("POST",))
