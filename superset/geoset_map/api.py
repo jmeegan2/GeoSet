@@ -135,7 +135,8 @@ class GeoSetMapRestApi(BaseSupersetApi):
                                 SELECT DISTINCT
                                     alerts.alert_id,
                                     counties.county_name,
-                                    counties.state_code
+                                    counties.state_code,
+                                    counties.state_name
                                 FROM dataminr_alerts AS alerts
                                 JOIN census_county_boundaries AS counties
                                   ON ST_Intersects(
@@ -148,6 +149,7 @@ class GeoSetMapRestApi(BaseSupersetApi):
                                 alert_counties.alert_id,
                                 alert_counties.county_name,
                                 alert_counties.state_code,
+                                alert_counties.state_name,
                                 COUNT(programs.*) AS location_count
                             FROM alert_counties
                             LEFT JOIN mv_latest_program_data AS programs
@@ -158,7 +160,8 @@ class GeoSetMapRestApi(BaseSupersetApi):
                             GROUP BY
                                 alert_counties.alert_id,
                                 alert_counties.county_name,
-                                alert_counties.state_code
+                                alert_counties.state_code,
+                                alert_counties.state_name
                             """
                         ).bindparams(bindparam("alert_ids", expanding=True))
                         county_rows = connection.execute(
@@ -169,6 +172,7 @@ class GeoSetMapRestApi(BaseSupersetApi):
                                 "alert_id": row.alert_id,
                                 "county_name": row.county_name,
                                 "state_code": row.state_code,
+                                "state_name": row.state_name,
                                 "location_count": int(row.location_count),
                             }
                             for row in county_rows
