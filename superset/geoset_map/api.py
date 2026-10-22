@@ -136,13 +136,15 @@ class GeoSetMapRestApi(BaseSupersetApi):
                                     alerts.alert_id,
                                     counties.county_name,
                                     counties.state_code,
-                                    counties.state_name
+                                    states.state_name
                                 FROM dataminr_alerts AS alerts
                                 JOIN census_county_boundaries AS counties
                                   ON ST_Intersects(
                                       counties.county_boundary,
                                       alerts.estimated_event_location::geometry
                                   )
+                                JOIN census_state_boundaries AS states
+                                  ON states.state_code = counties.state_code
                                 WHERE alerts.alert_id IN :alert_ids
                             )
                             SELECT

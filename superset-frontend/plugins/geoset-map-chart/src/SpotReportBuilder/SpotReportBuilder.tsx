@@ -136,9 +136,10 @@ async function getAcfProgramContext(rows: DataRecord[]): Promise<string> {
       groupedCounties.set(key, group);
     });
     const countyLines = Array.from(groupedCounties.values())
-      .sort((a, b) =>
-        Math.min(...a.alertNumbers, Number.MAX_SAFE_INTEGER) -
-        Math.min(...b.alertNumbers, Number.MAX_SAFE_INTEGER),
+      .sort(
+        (a, b) =>
+          Math.min(...a.alertNumbers, Number.MAX_SAFE_INTEGER) -
+          Math.min(...b.alertNumbers, Number.MAX_SAFE_INTEGER),
       )
       .map(group => {
         const location = `${group.countyName}${
@@ -148,11 +149,9 @@ async function getAcfProgramContext(rows: DataRecord[]): Promise<string> {
         const alertLabel =
           sortedAlertNumbers.length === 1
             ? `Alert ${sortedAlertNumbers[0]}`
-            : `Alerts ${sortedAlertNumbers
-                .slice(0, -1)
-                .join(', ')} and ${sortedAlertNumbers[
-                sortedAlertNumbers.length - 1
-              ]}`;
+            : `Alerts ${sortedAlertNumbers.slice(0, -1).join(', ')} and ${
+                sortedAlertNumbers[sortedAlertNumbers.length - 1]
+              }`;
         return `${alertLabel} — ${location}: There ${
           group.locationCount === 1 ? 'is' : 'are'
         } ${group.locationCount} ACF program location${
