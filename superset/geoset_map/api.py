@@ -121,7 +121,7 @@ class GeoSetMapRestApi(BaseSupersetApi):
             return self.response(200, result=result)
 
         database = DatabaseDAO.get_database_by_name(
-            os.environ.get("DART_DATABASE_NAME", "PostgreSQL")
+            os.environ.get("DART_DATABASE_NAME", "DART-ReadOnly")
         )
         if database is None:
             return self.response(200, result={})
