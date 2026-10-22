@@ -193,7 +193,6 @@ test('adds county-level ACF program context for selected alerts', async () => {
             county_name: 'Bay',
             location_count: 12,
             state_code: '12',
-            state_name: 'Florida',
           },
         ],
       },
