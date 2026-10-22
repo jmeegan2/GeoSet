@@ -3,7 +3,6 @@ import os
 import re
 
 from flask import request, Response
-from flask_appbuilder import permission_name
 from flask_appbuilder.api import expose, protect, safe
 from marshmallow import ValidationError
 from sqlalchemy import bindparam, text
@@ -55,7 +54,10 @@ class GeoSetMapRestApi(BaseSupersetApi):
         ("v4", "v5"): GeoSetLayerV5Schema.upgrade_from_previous_version,
     }
 
-    method_permission_name = MODEL_API_RW_METHOD_PERMISSION_MAP
+    method_permission_name = {
+        **MODEL_API_RW_METHOD_PERMISSION_MAP,
+        "acf_program_counts": "mapbox_api_key",
+    }
     allow_browser_login = True
     class_permission_name = "GeoSetMap"
     resource_name = "geoset_map"
@@ -107,7 +109,6 @@ class GeoSetMapRestApi(BaseSupersetApi):
     @expose("/acf_program_counts/", methods=("GET",))
     @protect()
     @safe
-    @permission_name("mapbox_api_key")
     def acf_program_counts(self) -> Response:
         """Return ACF program location counts for selected alert counties."""
         alert_ids = {
